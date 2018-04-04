@@ -201,8 +201,9 @@ class Memo {
         this.ran = false;
         this.db = null;
 
-        this.privateMode = false
-        this.readOnlyMode = this.app.property('memo:read-only', false)
+        this.useMe = this.app.property('memo:use-me', true);
+        this.privateMode = false;
+        this.readOnlyMode = this.app.property('memo:read-only', false);
     }
 
     prepare() {
@@ -425,7 +426,7 @@ class Memo {
             let dto = this.get(id)
             if (dto) {
                 let msg = `${dto.icon || '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`
-                sendMessage.call(this, sendPrivate ? `/msg ${nick} ${msg}` : `/me ${msg}`, channel)
+                sendMessage.call(this, sendPrivate ? `/msg ${nick} ${msg}` : `${this.useMe ? '/me ' : ''}${msg}`, channel)
             }
         }
         return this
