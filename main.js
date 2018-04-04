@@ -5,6 +5,15 @@ const debug = Debug('CORE')
 const db = require('./api/db')
 const queue = require('./api/queue')
 
+let getModuleName = (filename) => (filename || '').replace(new RegExp('^\.\/modules\/'), '').replace(new RegExp('.js$'), '').toLowerCase()
+let getModulePath = (moduleName) => getAvailableModules()[getModuleName(moduleName)]
+let getAvailableModules = () => {
+    let normalizedPath = require("path").join(__dirname, "modules");
+    return _(require("fs").readdirSync(normalizedPath))
+                .values().map((filename) => `./modules/${filename}`)
+                .keyBy((n) => n).mapKeys(getModuleName).value()
+}
+
 class Mirkobot {
     constructor(config) {
         this.db = db
@@ -24,7 +33,7 @@ class Mirkobot {
     }
 
     property(/*...*/) {
-        var args = _.toArray(arguments)
+        let args = _.toArray(arguments)
         if (args.length > 0) {
             return this.config.get.apply(this.config, args)
         }
@@ -47,23 +56,23 @@ class Mirkobot {
     }
 
     isLoadedModule(name) {
-        return (name.toLowerCase() in this.modules)
+        return getModuleName(name) in this.modules
     }
 
     getModule(name) {
-        var module = this.getModuleDescription(name) || {}
-        return module.instance !== undefined ? module.instance : module.file
+        let module = this.getModuleDescription(name) || {}
+        return !_.isNil(module.instance) ? module.instance : module.file
     }
 
     getModuleDescription(name) {
         if (this.isLoadedModule(name)) {
-            return this.modules[name.toLowerCase()]
+            return this.modules[getModuleName(name)]
         }
     }
 
     hasModule(name) {
         try {
-            require.resolve(`./modules/${name}`)
+            require.resolve(getModulePath(name))
             return true
         } catch(e) {
             debug('No found module: %s', name)
@@ -83,26 +92,26 @@ class Mirkobot {
     }
 
     loadModule(name) {
-        var moduleName = name.replace(new RegExp('.js$'), '')
+        let moduleName = getModuleName(name)
         if (this.hasModule(name)) {
             if (this.isLoadedModule(moduleName)) {
                 return this.getModule(moduleName)
             }
 
             try {
-                var path = `./modules/${name}`
-                var file = require(path)
-                var module = {
+                let path = getModulePath(getModulePath(name))
+                let file = require(path)
+                let module = {
                     name: moduleName,
                     instance: this.initModule(file),
                     path: path,
                     file: file
                 }
 
-                this.modules[moduleName.toLowerCase()] = module
+                this.modules[moduleName] = module
 
                 queue.emit('core::modules::register', module)
-                debug('Loaded module: %s', moduleName)
+                debug('Loaded module: %o', moduleName)
                 return module
             } catch (e) {
                 console.error(`Failed load module: ${moduleName}!`)
@@ -116,21 +125,29 @@ class Mirkobot {
     }
 
     loadModules() {
-        var that = this
-        var normalizedPath = require("path").join(__dirname, "modules");
-        require("fs").readdirSync(normalizedPath).forEach(function(name) {
-            that.loadModule.call(that, name)
-        });
+        let modules = this.config.get('modules', ['all'])
+
+        // Loading modules
+        let availableModules = _.keys(getAvailableModules())
+        let enabledModules = _(_.toLower(_.first(_.castArray(modules))) === 'all' ? availableModules : _.castArray(modules))
+                                .map(getModuleName).value()
+        enabledModules.forEach((name) => this.loadModule.call(this, name))
+
+        // Debug info
+        let diff = _.without.apply(_, [availableModules].concat(enabledModules))
+        if (_.size(diff)) {
+            debug('Disabled modules: %o', diff)
+        }
     }
 
     execute(methodName) {
-        var args = _.toArray(arguments).splice(1)
-        var ret = {}
-        for (var name in this.modules) {
-            var info = this.getModuleDescription(name)
-            var module = this.getModule(name)
-            var method = (module || {})[methodName]
-            var value
+        let args = _.toArray(arguments).splice(1)
+        let ret = {}
+        for (let name in this.modules) {
+            let info = this.getModuleDescription(name)
+            let module = this.getModule(name)
+            let method = (module || {})[methodName]
+            let value
 
             if (method && method instanceof Function) {
                 value = method.apply(module, args)
