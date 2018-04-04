@@ -1,4 +1,5 @@
 const debug = Debug('MEMO');
+const hdate = require('human-date')
 
 let normalizeId = (str) => (str || '').toString().toLowerCase().replace(/[^\w]/g, '');
 let model = function (id, content, author) {
@@ -153,9 +154,10 @@ let registerEvents = _.once(function (that) {
 
 
             case 'memo-list': {
-                let memos = _(that.list()).values().map((m) => { m.sort = normalizeId(m.name); return m; }).sortBy('sort').value();
+                let sortBy = _.first(args);
+                let memos = _(that.list()).values().map((m) => { m.sort = ['date'].indexOf(sortBy) !== -1 ?  m[sortBy] : normalizeId(m.name); return m; }).sortBy('sort').value();
                 if (!_.isEmpty(memos)) {
-                    reply.call(that, data, `Available memos: ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`}`).join('; ')}`);
+                    reply.call(that, data, `Available memos: ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`} / ${hdate.relativeTime(m.date)}`).join('; ')}`);
                 } else {
                     reply.call(that, data, `No found any memo! Add new by executing comand: !memo id content`);
                 }
