@@ -236,7 +236,6 @@ class Channel {
                     break;
                 }
                 case 'info:enter': {
-                    this.settings.executeMessages = true
                     this.queue.emit(['channel', this.name, 'join'], payload);
                     break;
                 }
@@ -251,6 +250,7 @@ class Channel {
                 }
                 case 'info:user': {
                     this.whoiam = payload || this.whoiam;
+                    this.settings.executeMessages = true
                     break;
                 }
 
