@@ -7,6 +7,7 @@ let normalizeToken = function(token) {
         return _.extend(JSON.parse(json), {token: token});
     } catch (e) {
         debug('Wrong token %o, error: %s', token, e.message);
+        process.exit(1);
     }
 };
 
@@ -65,7 +66,7 @@ class Mirkoczat {
     }
 
     channelJoin(name) {
-        let login = this.token.login;
+        let login = this.token && this.token.login ? this.token.login : 'unknown';
         if (name && !this.hasChannel(name)) {
             let channel = new Channel(this.app.queue, this.app.property('server'), name, this.token);
             channel.connect((queue) => {

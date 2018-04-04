@@ -34,7 +34,7 @@ let notifyMessage = function(payload) {
 
 class Channel {
     constructor(queue, server, room, token) {
-        this.debug = Debug(`CHANNEL:${room}:${Math.random()}`);
+        this.debug = Debug(`CHANNEL:${room}`);
         this.queue = queue;
 
         this.url = encodeURI(`${server}?tag=${room}&token=${token && token.token ? token.token : token}`);

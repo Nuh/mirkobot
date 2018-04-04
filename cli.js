@@ -4,15 +4,18 @@ global.Debug = require('debug');
 const Config = require('./cli/config');
 const Mirkobot = require('./main.js');
 
-var config = new Config({
+// Prepare configuration module
+let config = new Config({
     server: "ws://mirkoczat.pl/socket/websocket"
 });
 
-var bot = new Mirkobot(config)
+// Initialize application
+let bot = new Mirkobot(config)
 if (!bot.run()) {
     process.exit()
 }
 
+// User Input loop
 ;(function wait() {
    setTimeout(wait, 1000);
 })();

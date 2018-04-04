@@ -3,10 +3,11 @@ const debug = Debug('MEMO');
 let normalizeId = (str) => (str || '').toString().toLowerCase().replace(/[^\w]/g, '');
 let model = function (id, content, author) {
     return {
-        name: id,
+        name: id.trim().replace(new RegExp(':$'), ''),
         content: content,
         author: author,
-        date: new Date()
+        date: new Date(),
+        updated: new Date()
     }
 };
 
@@ -28,14 +29,14 @@ let registerEvents = _.once(function (that) {
         switch (command) {
             case 'memo-run':
             case 'memo-start': {
-                that.run();
-                reply.call(that, data, `Memo sending runned!`);
+                that.privateMode = false;
+                reply.call(that, data, `Memo private mode is disabled!`);
                 break;
             }
 
             case 'memo-stop': {
-                that.stop();
-                reply.call(that, data, `Memo sending stopped!`);
+                that.privateMode = true;
+                reply.call(that, data, `Memo private mode is enabled!`);
                 break;
             }
 
@@ -45,10 +46,12 @@ let registerEvents = _.once(function (that) {
             case 'memo-save': {
                 let id = _.first(args);
                 let msg = _.tail(args).join(' ').trim();
-                if (id && msg) {
+                if (id && !_.isEqual(id, 'random') && msg) {
                     let dto = that.register(id, msg, data.user);
                     if (dto) {
                         reply.call(that, data, `Memo ${id} registered!`);
+                    } else {
+                        reply.call(that, data, `Failed to register a memo ${id}!`);
                     }
                 } else {
                     reply.call(that, data, `No passed name or content, execute: ${command} name ...content!`);
@@ -87,13 +90,49 @@ let registerEvents = _.once(function (that) {
                     if (that.popContent(id, msg)) {
                         reply.call(that, data, `Memo ${id} has removed a content!`);
                     } else {
-                        reply.call(that, data, `No found content or memo!`);
+                        reply.call(that, data, `Memo ${id} not found`);
                     }
                 } else {
                     reply.call(that, data, `No passed name or content to remove, execute: ${command} name ...content!`);
                 }
                 break;
             }
+
+
+            case 'memo-undo': {
+                let id = _.first(args);
+                if (id) {
+                    let status = that.undo(id)
+                    if (status === true) {
+                        reply.call(that, data, `Memo ${id} back to older version!`);
+                    } else if (status === false) {
+                        reply.call(that, data, `Memo ${id} has not older version!`);
+                    } else {
+                        reply.call(that, data, `Memo ${id} not found`);
+                    }
+                } else {
+                    reply.call(that, data, `No passed name, execute: ${command} name!`);
+                }
+                break;
+            }
+
+            case 'memo-redo': {
+                let id = _.first(args);
+                if (id) {
+                    let status = that.redo(id)
+                    if (status === true) {
+                        reply.call(that, data, `Memo ${id} back to newer version!`);
+                    } else if (status === false) {
+                        reply.call(that, data, `Memo ${id} has not newer version!`);
+                    } else {
+                        reply.call(that, data, `Memo ${id} not found`);
+                    }
+                } else {
+                    reply.call(that, data, `No passed name, execute: ${command} name!`);
+                }
+                break;
+            }
+
 
             case 'memo-remove':
             case 'memo-delete': {
@@ -112,12 +151,13 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
+
             case 'memo-list': {
-                let memos = that.list();
+                let memos = _(that.list()).values().orderBy('name', [m => m.name.toLowerCase()]).value();
                 if (!_.isEmpty(memos)) {
-                    reply.call(that, data, `Available memos: ${_.map(memos, (m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ' (' + m.aliases.join(', ') + ')'}`).join('; ')}`);
+                    reply.call(that, data, `Available memos: ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ' (' + m.aliases.join(', ') + ')'}`).join('; ')}`);
                 } else {
-                    reply.call(that, data, `No found any memos! Add a new memo by executing comand: !memo id content`);
+                    reply.call(that, data, `No found any memo! Add new by executing comand: !memo id content`);
                 }
                 break;
             }
@@ -128,6 +168,7 @@ let registerEvents = _.once(function (that) {
 class Memo {
     constructor(applicationInstance) {
         this.app = applicationInstance;
+        this.privateMode = false
         this.ran = false;
         this.db = null;
     }
@@ -157,7 +198,7 @@ class Memo {
                 if (_.isEqual(normalizeId(command), 'random')) {
                     command = _(this.list()).castArray().flattenDeep().map('name').sample();
                 }
-                this.send.call(this, command, data.channel, data.private ? data.user : null);
+                this.send.call(this, command, data.channel, data.user, this.privateMode || data.private);
             };
         }
         if (!this.ran) {
@@ -179,7 +220,13 @@ class Memo {
 
     list() {
         return this.db.map(function (m) {
-            return {name: m.name, aliases: m.aliases}
+            return {
+                name: m.name,
+                aliases: m.aliases,
+                date: m.updated || m.date || m.created,
+                created: m.created || m.date,
+                updated: m.updated || m.date
+            }
         }).value();
     }
 
@@ -188,6 +235,9 @@ class Memo {
     }
 
     register(id, content, nick) {
+        // Redo to the newest version
+        while (this.redo(id));
+
         let obj = this.get(id);
         let newObj = model(id, content, nick);
         let oldObj = obj ? _.cloneDeep(obj) : null;
@@ -210,6 +260,46 @@ class Memo {
             _.extend(obj, {previous: oldObj});
         }
         return !!this.db.write();
+    }
+
+    undo(id) {
+        let obj = this.get(id)
+        let oldObj = obj ? _.cloneDeep(obj) : null;
+        let newObj = obj && obj.previous ? _.cloneDeep(obj.previous) : null;
+        if (obj) {
+            if (newObj) {
+                delete oldObj.previous
+                if (!newObj.previous) {
+                    delete obj.previous
+                }
+                newObj.next = oldObj
+                newObj.updated = new Date()
+                _.extend(obj, newObj);
+                return !!this.db.write();
+            }
+
+            return false
+        }
+    }
+
+    redo(id) {
+        let obj = this.get(id)
+        let oldObj = obj ? _.cloneDeep(obj) : null;
+        let newObj = obj && obj.next ? _.cloneDeep(obj.next) : null
+        if (obj) {
+            if (newObj) {
+                delete oldObj.next
+                if (!newObj.next) {
+                    delete obj.next
+                }
+                newObj.previous = oldObj
+                newObj.updated = new Date()
+                _.extend(obj, newObj);
+                return !!this.db.write();
+            }
+
+            return false
+        }
     }
 
     remove(id) {
@@ -242,6 +332,7 @@ class Memo {
                 // Alias memo
                 if (!this.has(alias)) {
                     entity.aliases.push(alias)
+                    entity.updated = new Date()
                 }
             })
 
@@ -254,6 +345,7 @@ class Memo {
             let entity = this.get(alias)
             if (entity) {
                 _.remove(entity.aliases, (a) => _.isEqual(normalizeId(a), normalizeId(alias)))
+                entity.updated = new Date()
                 debug('Removed alias %o for %o memo', alias, entity.name)
                 return !!this.db.write()
             }
@@ -286,12 +378,12 @@ class Memo {
         return false
     }
 
-    send(id, channel, nick = '') {
-        if (channel && id) {
+    send(id, channel, nick = '', sendPrivate = true) {
+        if (channel && id && (!sendPrivate || nick)) {
             let dto = this.get(id)
             if (dto) {
                 let msg = `📝 ${dto.name || id}: ${_(dto.content).castArray().flattenDeep().sample()}`
-                sendMessage.call(this, nick ? `/msg ${nick} ${msg}` : `/me ${msg}`, channel)
+                sendMessage.call(this, sendPrivate ? `/msg ${nick} ${msg}` : `/me ${msg}`, channel)
             }
         }
         return this
