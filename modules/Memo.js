@@ -153,9 +153,9 @@ let registerEvents = _.once(function (that) {
 
 
             case 'memo-list': {
-                let memos = _(that.list()).values().orderBy('name', [m => m.name.toLowerCase()]).value();
+                let memos = _(that.list()).values().map((m) => { m.sort = normalizeId(m.name); return m; }).sortBy('sort').value();
                 if (!_.isEmpty(memos)) {
-                    reply.call(that, data, `Available memos: ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ' (' + m.aliases.join(', ') + ')'}`).join('; ')}`);
+                    reply.call(that, data, `Available memos: ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`}`).join('; ')}`);
                 } else {
                     reply.call(that, data, `No found any memo! Add new by executing comand: !memo id content`);
                 }
