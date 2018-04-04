@@ -45,6 +45,10 @@ let registerEvents = _.once(function (that) {
             case 'memo-add':
             case 'memo-set':
             case 'memo-save': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 let msg = _.tail(args).join(' ').trim();
                 if (id && !_.isEqual(id, 'random') && msg) {
@@ -61,6 +65,10 @@ let registerEvents = _.once(function (that) {
             }
 
             case 'memo-alias': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 let aliases = _.tail(args);
                 if (id && !_.isEmpty(aliases) && that.alias(id, aliases)) {
@@ -74,6 +82,10 @@ let registerEvents = _.once(function (that) {
             }
 
             case 'memo-push': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 let msg = _.tail(args).join(' ').trim();
                 if (id && msg && that.pushContent(id, msg)) {
@@ -85,6 +97,10 @@ let registerEvents = _.once(function (that) {
             }
 
             case 'memo-pop': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 let msg = _.tail(args).join(' ').trim();
                 if (id && msg) {
@@ -101,6 +117,10 @@ let registerEvents = _.once(function (that) {
 
 
             case 'memo-undo': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 if (id) {
                     let status = that.undo(id)
@@ -118,6 +138,10 @@ let registerEvents = _.once(function (that) {
             }
 
             case 'memo-redo': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 if (id) {
                     let status = that.redo(id)
@@ -137,6 +161,10 @@ let registerEvents = _.once(function (that) {
 
             case 'memo-remove':
             case 'memo-delete': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
                 let id = _.first(args);
                 if (that.isAlias(id)) {
                     let obj = that.get(id);
@@ -170,9 +198,11 @@ let registerEvents = _.once(function (that) {
 class Memo {
     constructor(applicationInstance) {
         this.app = applicationInstance;
-        this.privateMode = false
         this.ran = false;
         this.db = null;
+
+        this.privateMode = false
+        this.readOnlyMode = this.app.property('memo:read-only', false)
     }
 
     prepare() {
@@ -262,6 +292,16 @@ class Memo {
             _.extend(obj, {previous: oldObj});
         }
         return !!this.db.write();
+    }
+
+    icon(id, icon = '') {
+        let entity = this.get(id)
+        if (entity) {
+            entity.icon = icon || '📝'
+
+            debug('Added icon %o for %o memo', entity.icon, entity.name)
+            return !!this.db.write()
+        }
     }
 
     undo(id) {
@@ -384,7 +424,7 @@ class Memo {
         if (channel && id && (!sendPrivate || nick)) {
             let dto = this.get(id)
             if (dto) {
-                let msg = `📝 ${dto.name || id}: ${_(dto.content).castArray().flattenDeep().sample()}`
+                let msg = `${dto.icon || '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`
                 sendMessage.call(this, sendPrivate ? `/msg ${nick} ${msg}` : `/me ${msg}`, channel)
             }
         }
