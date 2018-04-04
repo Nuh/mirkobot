@@ -20,7 +20,7 @@ let notifyMessage = function(payload) {
 
     // Notify message
     let msg = payload.body.trim().toString() || '';
-    this.queue.emit(['channel', this.name, payload.private ? 'private' : 'message', state], msg, payload);
+    this.queue.emit(['channel', this.name, payload.private ? 'private' : payload.type || 'message', state], msg, payload);
 
     // Notify command
     let isCommand = payload.private || payload.body.trim().startsWith('!');
@@ -82,9 +82,10 @@ class Channel {
                 user: payload.caller || payload.user,
                 body: _.trim(payload.body) || '',
                 date: new Date(),
+                type: 'msg:me' === event ? 'action' : ('msg:priv' === event ? 'query' : 'message'),
                 login: this.token && this.token.login ? this.token.login : null,
                 channel: this.name,
-                private: ['msg:send', 'msg:plus'].indexOf(event) === -1
+                private: ['msg:send', 'msg:plus', 'msg:me'].indexOf(event) === -1
             });
             if ('msg:priv' === event) { // Normalize body of private messages
                 payload.body = payload.body.substring(Math.max(0, payload.body.indexOf(':') + 1)).trim();
@@ -115,6 +116,10 @@ class Channel {
                     break;
                 }
 
+                case 'msg:me': {
+                    notifyMessage.call(this, payload);
+                    break;
+                }
                 case 'msg:send': {
                     notifyMessage.call(this, payload);
                     break;

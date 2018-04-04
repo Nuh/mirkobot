@@ -1,0 +1,66 @@
+const debug = Debug('GUARD:combining-unicode');
+const fs = require('fs-extra');
+
+let prepareBindings = function(data) {
+    return {
+        channel: data.channel,
+        nick: `${data.permissions === 'privileged' ? '@' : (data.permissions === 'voiced' ? '+' : ' ')}${data.user}`,
+        login: data.user,
+        status: data.permissions,
+        message: data.body,
+        date: {
+            iso8601: data.date.toISOString(),
+            years: _.padStart(data.date.getUTCFullYear(), 4, '0'),
+            months: _.padStart(data.date.getUTCMonth() + 1, 2, '0'),
+            weekdays: data.date.getUTCDay(),
+            days: _.padStart(data.date.getUTCDate(), 2, '0'),
+            hours: _.padStart(data.date.getUTCHours(), 2, '0'),
+            minutes: _.padStart(data.date.getUTCMinutes(), 2, '0'),
+            seconds: _.padStart(data.date.getUTCSeconds(), 2, '0'),
+            miliseconds: _.padStart(data.date.getUTCMilliseconds(), 3, '0'),
+            timezone: 'UTC',
+            timezoneOffset: 0
+        }
+    }
+}
+
+let eventHandler = function(msg, data) {
+    let binding = prepareBindings(data)
+    let path = this.templates.path(binding)
+    let logmessage = this.templates[data.type || 'message'](binding)
+
+    if (logmessage) {
+        fs.outputFileSync(path, logmessage, {'flag': 'a+'});
+    }
+}
+
+class Logger {
+    constructor(applicationInstance) {
+        this.app = applicationInstance
+
+        this.templates = {
+            path: _.template(this.app.property('logger:path', 'logs/${channel}/${date.years}-${date.months}-${date.days}.log')),
+            action: _.template(this.app.property('logger:action', '${date.hours}:${date.minutes}:${date.seconds} * ${login} ${message}\n')),
+            message: _.template(this.app.property('logger:message', '${date.hours}:${date.minutes}:${date.seconds} <${nick}> ${message}\n'))
+        }
+    }
+
+    isPrepared() {
+        if (!this.app.isLoadedModule('mirkoczat')) {
+            debug('Failed to run Guard! Required dependency %s does not loaded!', 'mirkoczat')
+            return false
+        }
+    }
+
+    run() {
+        this.app.bus('channel::*::action::*', (msg, data) => eventHandler.call(this, msg, data))
+        this.app.bus('channel::*::message::*', (msg, data) => eventHandler.call(this, msg, data))
+    }
+
+    stop() {
+        this.app.bus().offAny(eventHandler)
+    }
+
+}
+
+module.exports = Logger
