@@ -11,10 +11,13 @@ let normalizeToken = function(token) {
 };
 
 let registerChannelEvents = function(name, queue) {
-    let that = this;
-    queue.on(`channel::${name}::send`, (message) => that.sendMessage.call(that, message, name, false));
-    queue.on(`channel::${name}::send::priority`, (message) => that.sendMessage.call(that, message, name, true));
-    queue.on(`channel::${name}::execute`, (command, ...args) => that.execute.call(that, command, args, name));
+    queue.on(`channel::${name}::send`, (message) => this.sendMessage.call(this, message, name, false));
+    queue.on(`channel::${name}::send::priority`, (message) => this.sendMessage.call(this, message, name, true));
+    queue.on(`channel::${name}::execute`, (command, ...args) => this.execute.call(this, command, args, name));
+};
+let unregisterChannelEvents = function(name, queue) {
+    [`channel::${name}::send`, `channel::${name}::send::priority`, `channel::${name}::execute`]
+        .forEach((eventName) => queue.removeAllListeners(eventName))
 };
 
 class Mirkoczat {
@@ -29,9 +32,9 @@ class Mirkoczat {
     }
 
     run() {
-        this.app.queue.on('mirkoczat::send', (message) => this.sendMessage.call(this, message));
-        this.app.queue.on('mirkoczat::send::priority', (message) => this.sendMessage.call(this, message, null, true));
-        this.app.queue.on('mirkoczat::execute', (command, /*...*/) => this.execute.call(this, command, _.toArray(arguments).splice(1), null));
+        this.app.bus('mirkoczat::send', (message) => this.sendMessage.call(this, message));
+        this.app.bus('mirkoczat::send::priority', (message) => this.sendMessage.call(this, message, null, true));
+        this.app.bus('mirkoczat::execute', (command, /*...*/) => this.execute.call(this, command, _.toArray(arguments).splice(1), null));
 
         if (!this.reconnectorInterval) {
             this.reconnectorInterval = setInterval(() => {
@@ -81,15 +84,19 @@ class Mirkoczat {
 
         let ch = this.channels[name];
         let login = this.token && this.token.login ? this.token.login : this.token;
-        if (ch && ch.instance) {
-            if (!ch.instance.wasConnected) {
-                console.log(`Cannot connected '${login}' to #${name} channel`)
-            } else {
-                console.log(`Disconnected '${login}' from #${name} channel`)
+        if (ch) {
+            if (ch.instance) {
+                ch.instance.disconnect();
+
+                if (!ch.instance.wasConnected) {
+                    console.log(`Cannot connected '${login}' to #${name} channel`)
+                } else {
+                    console.log(`Disconnected '${login}' from #${name} channel`)
+                }
             }
 
+            unregisterChannelEvents(name, this.app.queue);
             delete this.channels[name];
-            ch.instance.disconnect();
             return true;
         }
     }

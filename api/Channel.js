@@ -14,17 +14,18 @@ let notifyMessage = function(payload) {
         return;
     }
 
-    let msg = payload.body.trim().toString() || '';
-    if (payload.private) {
-        payload.user = payload.caller || payload.user;
-        msg = msg.substring(Math.max(0, msg.indexOf(':') + 1)).trim();
-    }
-
+    // Permissions
     let state = getState.call(this, payload.user);
+    payload = _.extend(payload, {permission: state})
+
+    // Notify message
+    let msg = payload.body.trim().toString() || '';
     this.queue.emit(['channel', this.name, payload.private ? 'private' : 'message', state], msg, payload);
 
+    // Notify command
     let isCommand = payload.private || payload.body.trim().startsWith('!');
-    if (isCommand) {
+    let isMyMessage = _.isEqual(payload.user, payload.login)
+    if (isCommand && !isMyMessage) {
         let command = msg.replace(/ .*/, '').replace(/^\!/, '');
         let args = _.compact(msg.split(' ').splice(1));
         this.queue.emit(['channel', this.name, 'command', state], command, args, payload);
@@ -33,7 +34,7 @@ let notifyMessage = function(payload) {
 
 class Channel {
     constructor(queue, server, room, token) {
-        this.debug = Debug(`CHANNEL:${room}`);
+        this.debug = Debug(`CHANNEL:${room}:${Math.random()}`);
         this.queue = queue;
 
         this.url = encodeURI(`${server}?tag=${room}&token=${token && token.token ? token.token : token}`);
@@ -65,7 +66,7 @@ class Channel {
     }
 
     isConnected() {
-        return this.connected
+        return this.connected && !_.isNil(this.ws)
     }
 
     connect(callback) {
@@ -78,15 +79,25 @@ class Channel {
 
             // Decorate payload
             payload = _.extend(payload, {
+                user: payload.caller || payload.user,
+                body: _.trim(payload.body) || '',
+                date: new Date(),
                 login: this.token && this.token.login ? this.token.login : null,
                 channel: this.name,
-                date: new Date(),
                 private: ['msg:send', 'msg:plus'].indexOf(event) === -1
             });
+            if ('msg:priv' === event) { // Normalize body of private messages
+                payload.body = payload.body.substring(Math.max(0, payload.body.indexOf(':') + 1)).trim();
+            }
+
+            // Ignore old messages
+            if (_.startsWith(event, 'msg:') && !this.settings.executeMessages) {
+                return
+            }
 
             // Parse by event type
             switch (event) {
-                case 'join':
+                case 'join': {
                     this.wasConnected = this.connected = true;
 
                     if (!this.intervals.state) {
@@ -94,24 +105,30 @@ class Channel {
                         this.intervals.state = setInterval(() => this.refreshState.call(this), 15000)
                     }
                     if (!this.intervals.message) {
-                        this.intervals.message = setInterval(() => this.send.call(this, (this.queuedMessages || []).shift()), 1000)
+                        this.intervals.message = setInterval(() => {
+                            this.send.call(this, (this.queuedMessages || []).shift(), true)
+                        }, 1000)
                     }
 
                     this.queue.emit(['channel', this.name, 'connect'], payload);
                     (callback || _.noop)(this.queue);
                     break;
+                }
 
-                case 'msg:send':
+                case 'msg:send': {
                     notifyMessage.call(this, payload);
                     break;
-                case 'msg:priv':
+                }
+                case 'msg:priv': {
                     notifyMessage.call(this, payload);
                     break;
-                case 'msg:plus':
+                }
+                case 'msg:plus': {
                     this.queue.emit(['channel', this.name, 'vote'], payload);
                     break;
+                }
 
-                case 'info:cmd':
+                case 'info:cmd': {
                     let msg = payload.body;
                     if (msg.startsWith('Wiadomość od operatorów')) {
                         let [prefix, nick, message] = msg.split(': ');
@@ -120,6 +137,7 @@ class Channel {
                             message: (message || '').trim(),
                             date: null
                         };
+                        this.settings.updated = new Date();
                     } else if (msg.indexOf(' ustawia MOTD: ') !== -1) {
                         let [nick, message] = msg.split(' ustawia MOTD: ');
                         this.settings.motd = {
@@ -127,25 +145,35 @@ class Channel {
                             message: (message || '').trim(),
                             date: new Date()
                         };
+                        this.settings.updated = new Date();
                     } else if (msg.startsWith('Czat z osadzonym materiałem') || msg.indexOf(' zmienił osadzony materiał: ') !== -1) {
                         this.settings.embedded = true;
+                        this.settings.updated = new Date();
                     } else if (msg.endsWith(' usunął osadzony materiał.')) {
                         this.settings.embedded = false;
+                        this.settings.updated = new Date();
                     } else if (msg.indexOf('` ustawił nowy temat: `') !== -1) {
                         msg = msg.split('` ustawił nowy temat: `')[1] || '';
                         this.settings.topic = msg.substring(0, msg.length - 2) || '';
+                        this.settings.updated = new Date();
                     } else if (msg.startsWith('Nowy wymagany staż konta: ')) {
                         this.settings.requiredDays = parseInt(msg.split('Nowy wymagany staż konta: ')[1].trim().split(' ')[0] || '0', 10);
+                        this.settings.updated = new Date();
                     } else if (msg === 'Dostęp anonimowy włączony') {
                         this.settings.allowedAnon = true;
+                        this.settings.updated = new Date();
                     } else if (msg === 'Dostęp anonimowy wyłączony') {
                         this.settings.allowedAnon = false;
+                        this.settings.updated = new Date();
                     } else if (msg === 'Dostęp tylko dla @ i + włączony') {
                         this.settings.allowedAll = true;
+                        this.settings.updated = new Date();
                     } else if (msg === 'Dostęp tylko dla @ i + wyłączony') {
                         this.settings.allowedAll = false;
+                        this.settings.updated = new Date();
                     } else if (msg.startsWith('Kanał pamięta ')) {
                         this.settings.messages = parseInt(msg.split('Kanał pamięta ')[1].trim().split(' ')[0] || '0', 10);
+                        this.settings.updated = new Date();
                     } else if (msg.startsWith('(widoczne tylko dla moderatorów): ')) {
                         // via /mod, ignore now
                     } else if (msg.startsWith('Moderator `') || (msg.startsWith('User ') && msg.indexOf(' uciszony') !== -1)) {
@@ -160,6 +188,8 @@ class Channel {
                             newValues = _(newValues).without(duplicates).compact().value();
                             if (!_.isEqual(newValues, oldValues)) {
                                 this.settings[type] = newValues;
+                                this.settings.updated = new Date();
+
                                 this.queue.emit(['channel', this.name, 'state', type], newValues, oldValues);
 
                                 let added = _.without.apply(_, [newValues].concat(oldValues)),
@@ -204,33 +234,33 @@ class Channel {
                         }
                     }
                     break;
-                case 'info:enter':
+                }
+                case 'info:enter': {
+                    this.settings.executeMessages = true
                     this.queue.emit(['channel', this.name, 'join'], payload);
                     break;
-                case 'info:leave':
+                }
+                case 'info:leave': {
                     this.queue.emit(['channel', this.name, 'leave'], payload);
                     break;
-
-                case 'info:room':
+                }
+                case 'info:room': {
                     this.users = (payload || {}).users || this.users;
                     this.topic = (payload || {}).topic || this.topic;
                     break;
-                case 'info:user':
+                }
+                case 'info:user': {
                     this.whoiam = payload || this.whoiam;
                     break;
+                }
 
-                case 'phx_join':
-                    this.debug('Server message: %o (join)', payload);
-                    break;
-                case 'phx_reply':
-                    this.debug('Server message: %s (response: %o)', payload.status, payload.response);
-                    break;
-                case 'heartbeat':
+                case 'heartbeat': {
                     this.sendRaw({
                         topic: "phoenix",
                         event: "heartbeat",
                         payload: {}
                     });
+                }
             }
         });
 
@@ -243,20 +273,9 @@ class Channel {
             });
         });
         this.ws.on('close', (code, message) => {
+            this.disconnect()
+
             let doReconnect = [1005, 1006].indexOf(code) === -1;
-            this.connected = false;
-            if (this.ws) {
-                this.ws.close();
-            }
-
-            for (let type in this.intervals) {
-                let interval = this.intervals[type];
-                if (interval) {
-                    this.intervals[type] = null;
-                    clearInterval(interval);
-                }
-            }
-
             if (doReconnect) {
                 _.delay(() => this.connect.call(this), 3000)
             }
@@ -272,28 +291,54 @@ class Channel {
 
     disconnect() {
         this.connected = false;
-        if (this.ws) {
-            this.ws.close();
+
+        for (let type in this.intervals) {
+            let interval = this.intervals[type];
+            if (interval) {
+                this.intervals[type] = null;
+                clearInterval(interval);
+            }
+        }
+
+        if (!_.isNil(this.ws)) {
+            try {
+                this.ws.eventNames().forEach((eventName) => this.ws.removeAllListeners(eventName))
+                this.ws.close();
+            } catch(e) {
+                this.debug('Error while closing WebSocket connectivity: %s', e.message || e)
+            } finally {
+                try {
+                    this.ws.terminate()
+                } catch(ex) {
+                    // Ignore...
+                }
+            }
             this.ws = null;
         }
+
         return this
     }
 
     sendMessage(message, priority = false) {
         let q = this.queuedMessages;
         q[priority ? 'unshift' : 'push'].call(q, message);
+        this.queuedMessages = _.uniq(q)
         return this;
     }
 
-    send(message) {
+    send(message, queueIfNotConnected = false) {
         if (message) {
-            this.sendRaw({
-                topic: `rooms:${this.name}`,
-                event: 'msg:send',
-                payload: {
-                    body: message
-                }
-            });
+            if (this.isConnected()) {
+                this.sendRaw({
+                    topic: `rooms:${this.name}`,
+                    event: 'msg:send',
+                    payload: {
+                        body: message
+                    }
+                });
+            } else if (queueIfNotConnected) {
+                this.sendMessage(message, true)
+            }
         }
         return this
     }
