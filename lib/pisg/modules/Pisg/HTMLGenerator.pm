@@ -2196,7 +2196,7 @@ sub _user_times
     my $self = shift;
     my ($nick) = @_;
 
-    my $bar = "";
+    my $bar = "<div style=\"text-align: center; transform: scaleX(1.5); width: 66%; margin: 0 auto;\">";
     
     my $itemstat = ($self->{cfg}->{sortbywords} ? 'words' : 'lines');
     my $timestat = ($self->{cfg}->{sortbywords} ? 'word_times' : 'line_times');
@@ -2211,6 +2211,8 @@ sub _user_times
 \" id=\"$self->{cfg}->{$pic}\" border=\"0\" width=\"$w\" height=\"15\" alt=\"$l\" title=\"$l\" />";
         }
     }
+
+    $bar .= "</div>"
     return $bar;
 }
 

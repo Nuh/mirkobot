@@ -31,6 +31,9 @@ body {
 	font-size: 13px;
 	color: black;
 }
+table {
+    min-width: 70%;
+}
 
 #green-h {
 	height: 15px;
@@ -91,6 +94,7 @@ td {
 .headtext {
 	border-radius: 8px;
 	color: white;
+	font-size: 1.2em;
 	font-weight: bold;
 	text-align: center;
 	background-color: #666699;
@@ -101,6 +105,7 @@ td {
 }
 .tdtop {
 	background-color: #C8C8DD;
+    text-align: center;
 }
 .hicell {
 	background-color: #BABADD;
@@ -115,6 +120,10 @@ td {
 .hirankc {
 	background-color: #AAAAAA;
 	font-weight: bold;
+}
+.hirankc, .rankc {
+	width: 30px;
+    text-align: right;
 }
 .rankc10 {
 	background-color: #CCCCCC;
