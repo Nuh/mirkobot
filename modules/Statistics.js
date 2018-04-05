@@ -77,13 +77,13 @@ class Statistics {
             let html
 
             try {
-                html = exec(cmd, {stdio: [0,2], timeout: 60 * 1000, windowsHide: true}).toString()
-                this.count = Math.max(0, (this.count || 0) - 1)
+                html = exec(cmd, {timeout: 60 * 1000, windowsHide: true}).toString()
+                this.failureCount = Math.max(0, (this.failureCount || 0) - 1)
             } catch (e) {
                 debug('Failed generate of statistics page for %o channel:\nReason: %s', channel, e.message || 'unknown');
                 debug('Are you sure you have installed perl and executable perl scripts?');
 
-                if((this.count = (this.count || 0) + 1) >= 5) {
+                if((this.failureCount = (this.failureCount || 0) + 1) >= 5) {
                     debug('Disabling module because catch 5 failures in a row!')
                     this.stop()
                 }
