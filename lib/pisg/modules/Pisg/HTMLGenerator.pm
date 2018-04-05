@@ -653,7 +653,7 @@ sub _activenicks
         $output .= "<td $style>" . sprintf("%.1f", $w/$line) . "</td>"  if ($self->{cfg}->{showwpl});
         $output .= "<td $style>" . sprintf("%.1f", $ch/$line) . "</td>" if ($self->{cfg}->{showcpl});
         $output .= "<td $style>$lastseen</td>"                          if ($self->{cfg}->{showlastseen});
-        $output .= "<td $style>\"$randomline\"</td>"                    if ($self->{cfg}->{showrandquote});
+        $output .= "<td $style>$randomline</td>"                        if ($self->{cfg}->{showrandquote});
 
         _html($output);
         undef $output;
