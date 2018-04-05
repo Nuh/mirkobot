@@ -44,7 +44,7 @@ class Statistics {
         }
 
         this.cron = new CronJob({
-          cronTime: this.app.property('statistics:cron', '* */5 * * * *'),
+          cronTime: this.app.property('statistics:cron', '0 */5 * * * *'),
           onTick: () => this.generate(),
           start: false,
           timeZone: this.app.property('timezone', 'UTC')
@@ -73,8 +73,22 @@ class Statistics {
             debug('Start generating statistics for %o channel', channel)
 
             let logpath = _.template(path.dirname(logpathTemplate))({channel: channel})
-            let cmd = `${__dirname}/../lib/pisg/pisg --channel=${channel} --dir=${logpath} --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} -s -o -`
-            let html = exec(cmd).toString()
+            let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel=${channel} --dir=${logpath} --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} -s -o -`
+            let html
+
+            try {
+                html = exec(cmd, {stdio: [0,2], timeout: 60 * 1000, windowsHide: true}).toString()
+                this.count = Math.max(0, (this.count || 0) - 1)
+            } catch (e) {
+                debug('Failed generate of statistics page for %o channel:\nReason: %s', channel, e.message || 'unknown');
+                debug('Are you sure you have installed perl and executable perl scripts?');
+
+                if((this.count = (this.count || 0) + 1) >= 5) {
+                    debug('Disabling module because catch 5 failures in a row!')
+                    this.stop()
+                }
+            }
+
             if (html) {
                 debug('Generated statistics page of %o channel', channel)
                 uploadHtml(html)
@@ -89,8 +103,6 @@ class Statistics {
                     }).error((reason) => {
                         debug('Failed uploading a statistic page for %o channel: %s', channel, reason || 'no reason')
                     })
-            } else {
-                debug('Failed generate of statistics page for %o channel', channel)
             }
         })
     }
