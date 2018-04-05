@@ -55,7 +55,8 @@ class Statistics {
         if (this.cron) {
             this.cron.start()
         }
-        this.generate()
+
+        setTimeout(() => this.generate.call(this), 0)
     }
 
     stop() {
