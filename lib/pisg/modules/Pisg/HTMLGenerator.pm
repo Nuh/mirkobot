@@ -2212,7 +2212,7 @@ sub _user_times
         }
     }
 
-    $bar .= "</div>"
+    $bar .= "</div>";
     return $bar;
 }
 
