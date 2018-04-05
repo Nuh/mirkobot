@@ -634,9 +634,9 @@ sub _activenicks
 
         if ($self->{cfg}->{showlines}) {
             if ($self->{cfg}->{showlinetime}) {
-                $output .= "<td $style nowrap=\"nowrap\">" . $self->_user_linetimes($nick,$active[0]) . "</td>";
+                $output .= "<td $style class=\"center\" nowrap=\"nowrap\">" . $self->_user_linetimes($nick,$active[0]) . "</td>";
             } else {
-                $output .= "<td $style>$line</td>";
+                $output .= "<td $style class=\"center\" >$line</td>";
             }
         }
 
@@ -644,16 +644,16 @@ sub _activenicks
 
         if ($self->{cfg}->{showwords}) {
             if ($self->{cfg}->{showwordtime}) {
-                $output .= "<td $style nowrap=\"nowrap\">" . $self->_user_wordtimes($nick,$active[0]) . "</td>";
+                $output .= "<td $style class=\"center\" nowrap=\"nowrap\">" . $self->_user_wordtimes($nick,$active[0]) . "</td>";
             } else {
-                $output .= "<td $style>$w</td>";
+                $output .= "<td $style class=\"center\">$w</td>";
             }
         }
         
-        $output .= "<td $style>" . sprintf("%.1f", $w/$line) . "</td>"  if ($self->{cfg}->{showwpl});
-        $output .= "<td $style>" . sprintf("%.1f", $ch/$line) . "</td>" if ($self->{cfg}->{showcpl});
-        $output .= "<td $style>$lastseen</td>"                          if ($self->{cfg}->{showlastseen});
-        $output .= "<td $style>$randomline</td>"                        if ($self->{cfg}->{showrandquote});
+        $output .= "<td $style class=\"center\">". sprintf("%.1f", $w/$line) . "</td>"   if ($self->{cfg}->{showwpl});
+        $output .= "<td $style class=\"center\">" . sprintf("%.1f", $ch/$line) . "</td>" if ($self->{cfg}->{showcpl});
+        $output .= "<td $style class=\"center\">$lastseen</div></td>"                    if ($self->{cfg}->{showlastseen});
+        $output .= "<td $style>$randomline</td>"                                         if ($self->{cfg}->{showrandquote});
 
         _html($output);
         undef $output;
@@ -703,7 +703,7 @@ sub _activenicks
                 my $sex = $self->{users}->{sex}{$active[$i]};
 
                 my $output = "";
-                $output .= "<td class=\"rankc10\">";
+                $output .= "<td class=\"rankc10center\">";
 
                 if ($sex and $sex eq 'm') {
                     $output .= "<span class=\"male\">";

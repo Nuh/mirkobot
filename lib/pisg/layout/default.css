@@ -77,6 +77,9 @@ td {
 	color: black;
 	text-align: left;
 }
+.center {
+    text-align: center;
+}
 .male, .male a {
 	color: #0000DD;
 }
