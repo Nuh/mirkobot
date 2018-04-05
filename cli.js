@@ -1,4 +1,5 @@
 global._ = require('lodash');
+global.CronJob = require('cron').CronJob;
 global.Debug = require('debug');
 
 const Config = require('./cli/config');
