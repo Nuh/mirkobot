@@ -41,16 +41,16 @@ class Mirkobot {
     }
 
     isPrepared() {
-        return !_.some(this.execute('isPrepared'), function(value) { return value === false })
+        return !_.some(this.massExecute('isPrepared'), function(value) { return value === false })
     }
 
     isInitialized() {
-        return !_.some(this.execute('isInitialized'), function(value) { return value === false })
+        return !_.some(this.massExecute('isInitialized'), function(value) { return value === false })
     }
 
     isReady() {
         if (!this.isRan) {
-            return !_.some(this.execute('isReady'), function(value) { return value === false })
+            return !_.some(this.massExecute('isReady'), function(value) { return value === false })
         }
         return true
     }
@@ -75,7 +75,7 @@ class Mirkobot {
             require.resolve(getModulePath(name))
             return true
         } catch(e) {
-            debug('No found module: %s', name)
+            debug('No found module: %o', name)
         }
         return false
     }
@@ -104,13 +104,14 @@ class Mirkobot {
                 let module = {
                     name: moduleName,
                     instance: this.initModule(file),
+                    executed: [],
                     path: path,
                     file: file
                 }
 
                 this.modules[moduleName] = module
 
-                queue.emit('core::modules::register', module)
+                queue.emit('core::modules::register', moduleName, module)
                 debug('Loaded module: %o', moduleName)
                 return module
             } catch (e) {
@@ -122,6 +123,23 @@ class Mirkobot {
             }
         }
         return null
+    }
+
+    unloadModule(name) {
+        let moduleName = getModuleName(name)
+        if (this.isLoadedModule(moduleName)) {
+            let module = this.getModuleDescription(moduleName)
+
+            this.execute(moduleName, 'stop')
+            this.execute(moduleName, 'destroy')
+            delete this.modules[moduleName]
+
+            queue.emit('core::modules::unregister', moduleName, module)
+            debug('Unloaded module: %o', moduleName)
+
+            return true
+        }
+        return false
     }
 
     loadModules() {
@@ -140,34 +158,56 @@ class Mirkobot {
         }
     }
 
-    execute(methodName) {
+    checkDependency() {
+        for (let name in this.modules) {
+            let deps = _(this.execute(name, 'dependency')).values().castArray().compact()
+                            .groupBy((v) => this.isLoadedModule.call(this, v)).value();
+            if (!_.isEmpty(deps['false'])) {
+                debug('Error! Dependency is not met for %o - required %o modules!', name, deps['false']);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    execute(moduleName, methodName) {
+        let args = _.toArray(arguments).splice(2)
+        let info = this.getModuleDescription(moduleName)
+        let module = this.getModule(moduleName)
+        let method = (module || {})[methodName]
+        let value
+        if (method && method instanceof Function) {
+            value = method.apply(module, args)
+            module.executed = module.executed || []
+            module.executed.push(methodName)
+            debug('Executed method %o on %o', methodName, info.name)
+        }
+        return value
+    }
+
+    massExecute(methodName) {
         let args = _.toArray(arguments).splice(1)
         let ret = {}
         for (let name in this.modules) {
-            let info = this.getModuleDescription(name)
-            let module = this.getModule(name)
-            let method = (module || {})[methodName]
-            let value
-
-            if (method && method instanceof Function) {
-                value = method.apply(module, args)
-                debug('Executed method %s on %s', methodName, info.name)
-            }
-
-            ret[name] = value
+            ret[name] = this.execute.apply(this, [name, methodName].concat(args))
         }
         return ret
     }
 
     run() {
         if (!this.isRan) {
-            this.execute('prepare')
+            this.massExecute('prepare')
             if (!this.isPrepared()) {
                 console.error('Application does not prepared!')
                 return false
             }
 
-            this.execute('init')
+            if (!this.checkDependency()) {
+                console.error('Required modules does not met required dependencies needed to run!')
+                return false
+            }
+
+            this.massExecute('init')
             if (!this.isInitialized()) {
                 console.error('Application does not initialized!')
                 return false
@@ -178,7 +218,7 @@ class Mirkobot {
                 sleep(1000)
             }
 
-            this.execute('run')
+            this.massExecute('run')
 
             console.log('Application successfully started!')
             this.isRan = true

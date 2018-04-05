@@ -1,4 +1,4 @@
-const debug = Debug('GUARD:combining-unicode');
+const debug = Debug('LOGGER');
 const fs = require('fs-extra');
 
 let prepareBindings = function(data) {
@@ -45,11 +45,8 @@ class Logger {
         }
     }
 
-    isPrepared() {
-        if (!this.app.isLoadedModule('mirkoczat')) {
-            debug('Failed to run Guard! Required dependency %s does not loaded!', 'mirkoczat')
-            return false
-        }
+    dependency() {
+        return ['mirkoczat']
     }
 
     run() {

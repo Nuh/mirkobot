@@ -206,15 +206,12 @@ class Memo {
         this.readOnlyMode = this.app.property('memo:read-only', false);
     }
 
-    prepare() {
-        this.app.db.defaults({memo: []}).write();
+    dependency() {
+        return ['mirkoczat']
     }
 
-    isPrepared() {
-        if (!this.app.isLoadedModule('mirkoczat')) {
-            debug('Failed to run Memo! Required dependency %s does not loaded!', 'mirkoczat');
-            return false;
-        }
+    prepare() {
+        this.app.db.defaults({memo: []}).write();
     }
 
     init() {

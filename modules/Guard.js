@@ -28,11 +28,8 @@ class Guard {
         this.mitigationInterval = null
     }
 
-    isPrepared() {
-        if (!this.app.isLoadedModule('mirkoczat')) {
-            debug('Failed to run Guard! Required dependency %s does not loaded!', 'mirkoczat')
-            return false
-        }
+    dependency() {
+        return ['mirkoczat']
     }
 
     run() {

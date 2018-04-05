@@ -93,11 +93,8 @@ class Embedder {
         this.lastReceivedStreamers = []
     }
 
-    isPrepared() {
-        if (!this.app.isLoadedModule('mirkoczat')) {
-            debug('Failed to run Embedder! Required dependency %s does not loaded!', 'mirkoczat')
-            return false
-        }
+    dependency() {
+        return ['mirkoczat']
     }
 
     run() {
