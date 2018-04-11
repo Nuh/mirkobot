@@ -451,7 +451,7 @@ class Memo {
 
     property(id, name, value) {
         let entity = this.get(id);
-        if (entity && name && ['id', 'name', 'content', 'contents', 'author', 'alias', 'aliases', 'created', 'updated', 'previous', 'next'].indexOf(name) === -1) {
+        if (entity && name && ['icon', 'hidden', 'secret', 'hiddenName'].indexOf(name) !== -1) {
             if (_.isNil(value) && entity[name]) {
                 delete entity[name]
                 debug('Remove property %o for %o memo', name, entity.name);
