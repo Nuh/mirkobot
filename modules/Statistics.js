@@ -46,6 +46,7 @@ class Statistics {
         this.cron = new CronJob({
           cronTime: this.app.property('statistics:cron', '0 */5 * * * *'),
           onTick: () => this.generate(),
+          runOnInit: true,
           start: false,
           timeZone: this.app.property('timezone', 'UTC')
         });
@@ -55,8 +56,6 @@ class Statistics {
         if (this.cron) {
             this.cron.start()
         }
-
-        setTimeout(() => this.generate.call(this), 0)
     }
 
     stop() {
@@ -77,7 +76,7 @@ class Statistics {
             let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel=${channel} --dir=${logpath} --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} -s -o -`
 
             try {
-                exec(cmd, {timeout: 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
+                exec(cmd, {timeout: 5 * 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
                     if (err) {
                         throw new Error(err);
                     }
