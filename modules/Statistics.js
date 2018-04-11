@@ -66,7 +66,7 @@ class Statistics {
 
     generate() {
         let logpathTemplate = this.app.property('logger:path')
-        let configfile = this.app.property('statistics:config', path.normalize(`${__dirname}/../lib/pisg/pisg.cfg`))
+        let configfile = this.app.property('statistics:config') || path.normalize(`${__dirname}/../lib/pisg/pisg.cfg`)
         let channels = this.app.property('channels')
         let lang = this.app.property('statistics:lang', 'EN')
         let timeOffset = moment.tz(this.app.property('timezone')).format('Z').replace(new RegExp(':.*'), '')
