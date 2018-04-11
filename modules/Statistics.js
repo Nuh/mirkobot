@@ -21,7 +21,7 @@ let registerMemo = function(channel, url) {
     if (memo && url) {
         let name = this.app.property('statistics:memo:name', 'Statistics')
         let aliases = _.castArray(this.app.property('statistics:memo:aliases', ['stat', 'stats', 'top', 'top10']))
-        if (memo.register(name, url, 'SYSTEM') && (!_.size(aliases) || memo.alias(name, aliases))) {
+        if (memo.register(name, url, 'SYSTEM', true) && (!_.size(aliases) || memo.alias(name, aliases))) {
             debug('Registered a new memo of statistics for %o channel: %s', channel, name)
             return true
         }

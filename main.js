@@ -225,7 +225,18 @@ class Mirkobot {
         }
         return this.isRan
     }
+
+    stop() {
+        if (this.isRan) {
+            this.isRan = false
+
+            this.massExecute('stop')
+            this.massExecute('destroy')
+
+            console.log('Application successfully stopped!')
+        }
+        return !this.isRan
+    }
 }
 
 module.exports = Mirkobot
-

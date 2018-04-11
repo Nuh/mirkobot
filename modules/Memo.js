@@ -242,8 +242,12 @@ class Memo {
     stop() {
         this.ran = false;
         this.app.bus().off('channel::*::command::*', eventHandler);
+    }
+
+    destroy() {
         this.save(true)
     }
+
 
     has(id) {
         return !!this.get(id);
@@ -265,7 +269,7 @@ class Memo {
         return this.db.find((obj) => _([obj.name, obj.aliases]).castArray().flattenDeep().compact().map(normalizeId).includes(normalizeId(id))).value();
     }
 
-    register(id, content, nick) {
+    register(id, content, nick, overwrite = false) {
         // Redo to the newest version
         while (this.redo(id));
 
@@ -283,11 +287,11 @@ class Memo {
             }
             _.extend(obj, newObj);
         } else {
-            obj = this.db.insert(newObj);
+            obj = this.db.insert(newObj).write();
             debug('Added memo %o: %s [by %s]', id, content, nick);
         }
         // Archive historical data
-        if (oldObj) {
+        if (oldObj && !overwrite) {
             _.extend(obj, {previous: oldObj});
         }
         return this.save()
@@ -431,6 +435,7 @@ class Memo {
 
     save(force = false) {
         if (force) {
+            debug('Saving Memos DB state to file')
             return !!this.db.write()
         }
         if (!this._save) {
