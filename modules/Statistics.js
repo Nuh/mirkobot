@@ -66,6 +66,7 @@ class Statistics {
 
     generate() {
         let logpathTemplate = this.app.property('logger:path')
+        let configfile = this.app.property('statistics:config', path.normalize(`${__dirname}/../lib/pisg/pisg.cfg`))
         let channels = this.app.property('channels')
         let lang = this.app.property('statistics:lang', 'EN')
         let timeOffset = moment.tz(this.app.property('timezone')).format('Z').replace(new RegExp(':.*'), '')
@@ -73,7 +74,7 @@ class Statistics {
             debug('Start generating statistics for %o channel', channel)
 
             let logpath = _.template(path.dirname(logpathTemplate))({channel: channel})
-            let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel=${channel} --dir=${logpath} --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} -s -o -`
+            let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel=${channel} --dir=${logpath} --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} --configfile=${configfile} -s -o -`
 
             try {
                 exec(cmd, {timeout: 5 * 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
