@@ -198,7 +198,7 @@ let registerEvents = _.once(function (that) {
                 let id = _.first(args);
                 let obj = that.get(id)
                 if (obj) {
-                    reply.call(that, data, `Memo metadata - ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => `${_.lowerCase(k)}: ${v}`).join(', ')}`)
+                    reply.call(that, data, `Memo metadata - ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => { let key = _.lowerCase(k); let val = _.toString(v); return key && val ? `${key}: ${val}` : ''}).compact().join('; ')}`)
                 } else if (id) {
                     reply.call(that, data, `Memo ${id} not found`);
                 } else {
