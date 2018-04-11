@@ -182,7 +182,7 @@ let registerEvents = _.once(function (that) {
 
             case 'memo-info': {
                 let id = _.first(args);
-                let memo = that.get('id')
+                let memo = that.get(id)
                 if (memo) {
                     reply.call(that, data, `Memo ${memo.name} metadata: ${_(memo).omitBy((v, k) => ['id', 'name', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => `${_.startCase(k)}: ${v}`).join(', ')}`)
                 } else if (id) {
