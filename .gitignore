@@ -263,5 +263,7 @@ $RECYCLE.BIN/
 
 # Application files
 db.json
+pisg.cfg
+pisg.config
 mirkobot-*.tgz
 mirkobot.config
