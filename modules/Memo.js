@@ -5,9 +5,9 @@ let normalizeId = (str) => (str || '').toString().toLowerCase().replace(/[^\w]/g
 let model = function (id, content, author) {
     return {
         name: id.trim().replace(new RegExp(':$'), ''),
-        content: content,
         author: author,
-        date: new Date(),
+        content: content,
+        created: new Date(),
         updated: new Date()
     }
 };
