@@ -27,6 +27,9 @@ let sendMessage = function (msg, channel) {
 let eventHandler;
 let registerEvents = _.once(function (that) {
     that.app.bus('channel::*::command::privileged', function (command, args, data) {
+        let id = _.first(args);
+        let opts = _.tail(args);
+
         switch (command) {
             case 'memo-run':
             case 'memo-start': {
@@ -49,8 +52,7 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
-                let msg = _.tail(args).join(' ').trim();
+                let msg = opts.join(' ').trim();
                 if (id && msg) {
                     let dto = that.register(id, msg, data.user);
                     if (dto) {
@@ -69,11 +71,9 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
-                let aliases = _.tail(args);
-                if (id && !_.isEmpty(aliases) && that.alias(id, aliases)) {
-                    reply.call(that, data, `Memo ${id} has added ${aliases.join(', ')} aliases!`);
-                } else if (id && !_.isEmpty(aliases)) {
+                if (id && !_.isEmpty(opts) && that.alias(id, opts)) {
+                    reply.call(that, data, `Memo ${id} has added ${opts.join(', ')} aliases!`);
+                } else if (id && !_.isEmpty(opts)) {
                     reply.call(that, data, `Memo ${id} not found`);
                 } else {
                     reply.call(that, data, `No passed name or aliases, execute: ${command} name ...alias!`);
@@ -86,8 +86,7 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
-                let msg = _.tail(args).join(' ').trim();
+                let msg = opts.join(' ').trim();
                 if (id && msg && that.pushContent(id, msg)) {
                     reply.call(that, data, `Memo ${id} has appended a new content!`);
                 } else {
@@ -101,8 +100,7 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
-                let msg = _.tail(args).join(' ').trim();
+                let msg = opts.join(' ').trim();
                 if (id && msg) {
                     if (that.popContent(id, msg)) {
                         reply.call(that, data, `Memo ${id} has removed a content!`);
@@ -121,7 +119,6 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
                 if (id) {
                     let status = that.undo(id)
                     if (status === true) {
@@ -142,7 +139,6 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
                 if (id) {
                     let status = that.redo(id)
                     if (status === true) {
@@ -165,11 +161,13 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                let id = _.first(args);
                 if (that.isAlias(id)) {
                     let obj = that.get(id);
-                    that.unalias(id);
-                    reply.call(that, data, `Memo ${obj.name} has removed ${id} alias!`);
+                    if (that.unalias(id)) {
+                        reply.call(that, data, `Memo ${obj.name} has removed ${id} alias!`);
+                    } else {
+                        reply.call(that, data, `Memo ${obj.name} has can not remove ${id} alias!`);
+                    }
                 } else if (that.remove(id)) {
                     reply.call(that, data, `Memo ${id} removed!`);
                 } else if (id) {
@@ -180,26 +178,25 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
-            case 'memo-icon': {
-                let id = _.first(args);
-                let icon = _.tail(args).join(' ').trim();
-                if (id && icon) {
-                    if (that.icon(id, icon)) {
-                        reply.call(that, data, `Memo ${id} icon changed!`);
+            case 'memo-property': {
+                let name = _.first(opts);
+                let value = _.tail(opts).join(' ').trim();
+                if (id && name) {
+                    if (that.property(id, name, value || null)) {
+                        reply.call(that, data, `Memo ${id} set property!`);
                     } else {
-                        reply.call(that, data, `Memo ${id} not found`);
+                        reply.call(that, data, `Memo ${id} not found or wrong property to set!`);
                     }
                 } else {
-                    reply.call(that, data, `No passed name or icon, execute: ${command} name icon!`);
+                    reply.call(that, data, `No passed name or property, execute: ${command} name property-name ...property-value!`);
                 }
                 break;
             }
 
             case 'memo-info': {
-                let id = _.first(args);
-                let obj = that.get(id)
+                let obj = that.get(id);
                 if (obj) {
-                    reply.call(that, data, `Memo metadata - ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => { let key = _.lowerCase(k); let val = _.toString(v); return key && val ? `${key}: ${val}` : ''}).compact().join('; ')}`)
+                    reply.call(that, data, `Memo metadata - ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => { let key = _.lowerCase(k); let val = _.toString(v); return key && val ? `${key}: ${val}` : ''}).compact().join('; ')}`);
                 } else if (id) {
                     reply.call(that, data, `Memo ${id} not found`);
                 } else {
@@ -210,9 +207,9 @@ let registerEvents = _.once(function (that) {
 
             case 'memo-list': {
                 let sortBy = _.first(args);
-                let memos = _(that.list()).values().map((m) => { m.sort = ['date'].indexOf(sortBy) !== -1 ?  m[sortBy] : normalizeId(m.name); return m; }).sortBy('sort').value();
+                let memos = _(that.list()).values().map((m) => { m.sort = ['date', 'created', 'updated'].indexOf(sortBy) !== -1 ?  m[sortBy] : normalizeId(m.name); return m; }).sortBy('sort').value();
                 if (!_.isEmpty(memos)) {
-                    reply.call(that, data, `Available memos (${_.size(memos)}): ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`} / ${hdate.relativeTime(m.date)}`).join('; ')}`);
+                    reply.call(that, data, `Available memos (${_.size(memos)}): ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`}${m.hidden && !m.secret ? '/ HIDDEN', ''}${m.secret ? '/ SECRET', ''} / ${hdate.relativeTime(m.date)}`).join('; ')}`);
                 } else {
                     reply.call(that, data, `No found any memo! Add new by executing comand: !memo id content`);
                 }
@@ -228,10 +225,13 @@ class Memo {
         this.ran = false;
         this.db = null;
 
+        // Configuration
         this.useMe = this.app.property('memo:use-me', true);
-        this.privateMode = false;
         this.readOnlyMode = this.app.property('memo:read-only', false);
         this.randomEnabled = this.app.property('memo:random-enabled', true);
+
+        // State
+        this.privateMode = false;
     }
 
     dependency() {
@@ -256,7 +256,7 @@ class Memo {
                 if (this.randomEnabled && _.isEqual(normalizeId(command), 'random')) {
                     command = _(this.list()).castArray().flattenDeep().map('name').sample();
                 }
-                this.send.call(this, command, data.channel, data.user, this.privateMode || data.private);
+                this.send.call(this, command, data, this.privateMode || data.private);
             };
         }
         if (!this.ran) {
@@ -285,7 +285,9 @@ class Memo {
         return this.db.map(function (m) {
             return {
                 name: m.name,
-                aliases: m.aliases,
+                aliases: _(m.aliases).castArray().compact().value(),
+                hidden: m.hidden || false,
+                secret: m.secret || false,
                 date: m.updated || m.date || m.created,
                 created: m.created || m.date,
                 updated: m.updated || m.date
@@ -329,16 +331,6 @@ class Memo {
             if (obj.previous) delete obj.previous;
         }
         return this.save()
-    }
-
-    icon(id, icon = '') {
-        let entity = this.get(id);
-        if (entity) {
-            entity.icon = icon || '📝';
-
-            debug('Added icon %o for %o memo', entity.icon, entity.name);
-            return this.save()
-        }
     }
 
     undo(id) {
@@ -457,12 +449,30 @@ class Memo {
         return false
     }
 
-    send(id, channel, nick = '', sendPrivate = true) {
-        if (channel && id && (!sendPrivate || nick)) {
-            let dto = this.get(id)
-            if (dto) {
-                let msg = `${dto.icon || '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`
-                sendMessage.call(this, sendPrivate ? `/msg ${nick} ${msg}` : `${this.useMe ? '/me ' : ''}${msg}`, channel)
+    property(id, name, value) {
+        let entity = this.get(id);
+        if (entity && name && ['id', 'name', 'content', 'contents', 'author', 'alias', 'aliases', 'created', 'updated', 'previous', 'next'].indexOf(name) === -1) {
+            if (_.isNil(value) && entity[name]) {
+                delete entity[name]
+                debug('Remove property %o for %o memo', name, entity.name);
+            } else {
+                entity[name] = value
+                debug('Set property %o to %o for %o memo', name, value, entity.name);
+            }
+            return this.save()
+        }
+        return false
+    }
+
+    send(id, data, sendPrivate = true) {
+        let dto = this.get(id)
+        if (data && dto) {
+            let nick = data.user
+            let channel = data.channel
+            if (channel && (!sendPrivate || nick) && (!dto.secret || ['privileged'].indexOf(data.permission) !=== -1)) {
+                let msg = `${dto.icon || '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`;
+                let priv = sendPrivate || dto.hidden || dto.secret;
+                sendMessage.call(this, priv ? `/msg ${nick} ${msg}` : `${this.useMe ? '/me ' : ''}${msg}`, channel)
             }
         }
         return this
