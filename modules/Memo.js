@@ -180,6 +180,18 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
+            case 'memo-info': {
+                let id = _.first(args);
+                let memo = that.get('id')
+                if (memo) {
+                    reply.call(that, data, `Memo ${memo.name} metadata: ${_(memo).omitBy((v, k) => ['id', 'name', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => `${_.startCase(k)}: ${v}`).join(', ')}`)
+                } else if (id) {
+                    reply.call(that, data, `Memo ${id} not found`);
+                } else {
+                    reply.call(that, data, `No passed name, execute: ${command} name!`);
+                }
+                break;
+            }
 
             case 'memo-list': {
                 let sortBy = _.first(args);
@@ -269,7 +281,7 @@ class Memo {
         return this.db.find((obj) => _([obj.name, obj.aliases]).castArray().flattenDeep().compact().map(normalizeId).includes(normalizeId(id))).value();
     }
 
-    register(id, content, nick, overwrite = false) {
+    register(id, content, nick = 'SYSTEM', overwrite = false) {
         // Redo to the newest version
         while (this.redo(id));
 
@@ -355,9 +367,10 @@ class Memo {
     remove(id) {
         let obj = this.get(id)
         if (obj) {
-            this.db.remove(obj)
+            this.db
+                .remove(obj)
+                .write()
             debug('Removed memo %o', id)
-            this.save(true)
             return obj
         }
     }
@@ -440,9 +453,11 @@ class Memo {
 
     save(force = false) {
         if (force) {
-            debug('Saving Memos DB state to file')
+            debug('Saving changes of Memo DB to file')
             return !!this.db.write()
         }
+
+        // Lazy saving
         if (!this._save) {
             this._save = _.debounce(() => this.save(true), 5000, {maxWait: 15000})
         }
