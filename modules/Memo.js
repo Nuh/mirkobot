@@ -192,6 +192,7 @@ let registerEvents = _.once(function (that) {
                 } else {
                     reply.call(that, data, `No passed name or icon, execute: ${command} name icon!`);
                 }
+                break;
             }
 
             case 'memo-info': {
