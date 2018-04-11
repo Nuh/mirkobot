@@ -294,6 +294,11 @@ class Memo {
         if (oldObj && !overwrite) {
             _.extend(obj, {previous: oldObj});
         }
+        // Remove all historical data
+        if (overwrite) {
+            if (obj.next) delete obj.next;
+            if (obj.previous) delete obj.previous;
+        }
         return this.save()
     }
 
