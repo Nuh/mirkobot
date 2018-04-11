@@ -209,7 +209,7 @@ let registerEvents = _.once(function (that) {
                 let sortBy = _.first(args);
                 let memos = _(that.list()).values().map((m) => { m.sort = ['date', 'created', 'updated'].indexOf(sortBy) !== -1 ?  m[sortBy] : normalizeId(m.name); return m; }).sortBy('sort').value();
                 if (!_.isEmpty(memos)) {
-                    reply.call(that, data, `Available memos (${_.size(memos)}): ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`}${m.hidden && !m.secret ? '/ HIDDEN', ''}${m.secret ? '/ SECRET', ''} / ${hdate.relativeTime(m.date)}`).join('; ')}`);
+                    reply.call(that, data, `Available memos (${_.size(memos)}): ${_(memos).map((m) => `📝 ${m.name}${_.isEmpty(m.aliases) ? '' : ` (${_(m.aliases).sort().join(', ')})`}${m.hidden && !m.secret ? '/ HIDDEN' : ''}${m.secret ? '/ SECRET' : ''} / ${hdate.relativeTime(m.date)}`).join('; ')}`);
                 } else {
                     reply.call(that, data, `No found any memo! Add new by executing comand: !memo id content`);
                 }
