@@ -211,7 +211,7 @@ class Memo {
     }
 
     prepare() {
-        this.app.db.defaults({memo: []}).write();
+        this.app.db.defaults({memo: []});
     }
 
     init() {
@@ -242,6 +242,7 @@ class Memo {
     stop() {
         this.ran = false;
         this.app.bus().off('channel::*::command::*', eventHandler);
+        this.save(true)
     }
 
     has(id) {
@@ -282,23 +283,23 @@ class Memo {
             }
             _.extend(obj, newObj);
         } else {
-            obj = this.db.insert(newObj).write();
+            obj = this.db.insert(newObj);
             debug('Added memo %o: %s [by %s]', id, content, nick);
         }
         // Archive historical data
         if (oldObj) {
             _.extend(obj, {previous: oldObj});
         }
-        return !!this.db.write();
+        return this.save()
     }
 
     icon(id, icon = '') {
-        let entity = this.get(id)
+        let entity = this.get(id);
         if (entity) {
-            entity.icon = icon || '📝'
+            entity.icon = icon || '📝';
 
-            debug('Added icon %o for %o memo', entity.icon, entity.name)
-            return !!this.db.write()
+            debug('Added icon %o for %o memo', entity.icon, entity.name);
+            return this.save()
         }
     }
 
@@ -308,17 +309,17 @@ class Memo {
         let newObj = obj && obj.previous ? _.cloneDeep(obj.previous) : null;
         if (obj) {
             if (newObj) {
-                delete oldObj.previous
+                delete oldObj.previous;
                 if (!newObj.previous) {
-                    delete obj.previous
+                    delete obj.previous;
                 }
-                newObj.next = oldObj
-                newObj.updated = new Date()
+                newObj.next = oldObj;
+                newObj.updated = new Date();
                 _.extend(obj, newObj);
-                return !!this.db.write();
+                return this.save()
             }
 
-            return false
+            return false;
         }
     }
 
@@ -335,7 +336,7 @@ class Memo {
                 newObj.previous = oldObj
                 newObj.updated = new Date()
                 _.extend(obj, newObj);
-                return !!this.db.write();
+                return this.save()
             }
 
             return false
@@ -345,9 +346,8 @@ class Memo {
     remove(id) {
         let obj = this.get(id)
         if (obj) {
-            this.db
-                .remove(obj)
-                .write()
+            this.db.remove(obj)
+            this.save()
             debug('Removed memo %o', id)
             return obj
         }
@@ -376,7 +376,7 @@ class Memo {
                 }
             })
 
-            return !!this.db.write()
+            return this.save()
         }
     }
 
@@ -387,7 +387,7 @@ class Memo {
                 _.remove(entity.aliases, (a) => _.isEqual(normalizeId(a), normalizeId(alias)))
                 entity.updated = new Date()
                 debug('Removed alias %o for %o memo', alias, entity.name)
-                return !!this.db.write()
+                return this.save()
             }
         }
         return false
@@ -402,7 +402,7 @@ class Memo {
             entity.content.push(content)
 
             debug('Append a new content to %o memo: %s', entity.name, content)
-            return !!this.db.write()
+            return this.save()
         }
         return false
     }
@@ -412,7 +412,7 @@ class Memo {
         if (entity && _.isArray(entity.content)) {
             if (_.remove(entity.content, (msg) => _.isEqual(msg.toLowerCase(), content.toLowerCase()))) {
                 debug('Memo %o has removed a content: %s', entity.name, content)
-                return !!this.db.write()
+                return this.save()
             }
         }
         return false
@@ -427,6 +427,16 @@ class Memo {
             }
         }
         return this
+    }
+
+    save(force = false) {
+        if (force) {
+            return !!this.db.write()
+        }
+        if (!this._save) {
+            this._save = _.debounce(() => this.save(true), 5000, {maxWait: 15000})
+        }
+        return this._save() || true
     }
 }
 
