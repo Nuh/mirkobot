@@ -51,7 +51,7 @@ let registerEvents = _.once(function (that) {
 
                 let id = _.first(args);
                 let msg = _.tail(args).join(' ').trim();
-                if (id && !_.isEqual(id, 'random') && msg) {
+                if (id && msg) {
                     let dto = that.register(id, msg, data.user);
                     if (dto) {
                         reply.call(that, data, `Memo ${id} registered!`);
@@ -180,11 +180,25 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
+            case 'memo-icon': {
+                let id = _.first(args);
+                let icon = _.tail(args).join(' ').trim();
+                if (id && icon) {
+                    if (that.icon(id, icon)) {
+                        reply.call(that, data, `Memo ${id} icon changed!`);
+                    } else {
+                        reply.call(that, data, `Memo ${id} not found`);
+                    }
+                } else {
+                    reply.call(that, data, `No passed name or icon, execute: ${command} name icon!`);
+                }
+            }
+
             case 'memo-info': {
                 let id = _.first(args);
                 let obj = that.get(id)
                 if (obj) {
-                    reply.call(that, data, `Memo ${obj.name} metadata - ${_(obj).omitBy((v, k) => ['id', 'name', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => `${_.lowerCase(k)}: ${v}`).join(', ')}`)
+                    reply.call(that, data, `Memo metadata - ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => `${_.lowerCase(k)}: ${v}`).join(', ')}`)
                 } else if (id) {
                     reply.call(that, data, `Memo ${id} not found`);
                 } else {
@@ -216,6 +230,7 @@ class Memo {
         this.useMe = this.app.property('memo:use-me', true);
         this.privateMode = false;
         this.readOnlyMode = this.app.property('memo:read-only', false);
+        this.randomEnabled = this.app.property('memo:random-enabled', true);
     }
 
     dependency() {
@@ -237,7 +252,7 @@ class Memo {
     run() {
         if (!eventHandler) {
             eventHandler = (command, args, data) => {
-                if (_.isEqual(normalizeId(command), 'random')) {
+                if (this.randomEnabled && _.isEqual(normalizeId(command), 'random')) {
                     command = _(this.list()).castArray().flattenDeep().map('name').sample();
                 }
                 this.send.call(this, command, data.channel, data.user, this.privateMode || data.private);
@@ -304,6 +319,7 @@ class Memo {
         }
         // Archive historical data
         if (oldObj && !overwrite) {
+            obj.created = oldObj.created || obj.created;
             _.extend(obj, {previous: oldObj});
         }
         // Remove all historical data
