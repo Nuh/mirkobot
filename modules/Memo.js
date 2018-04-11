@@ -351,8 +351,8 @@ class Memo {
         let obj = this.get(id)
         if (obj) {
             this.db.remove(obj)
-            this.save()
             debug('Removed memo %o', id)
+            this.save(true)
             return obj
         }
     }
