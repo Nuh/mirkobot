@@ -244,7 +244,7 @@ class Memo {
         if (!eventHandler) {
             eventHandler = (command, args, data) => {
                 if (this.randomEnabled && _.isEqual(normalizeId(command), 'random')) {
-                    command = _(this.list()).castArray().flattenDeep().filter((m) -> !(m.secret || m.hidden)).map('name').sample();
+                    command = _(this.list()).castArray().flattenDeep().filter((m) => !(m.secret || m.hidden)).map('name').sample();
                 }
                 this.send.call(this, command, data, this.privateMode || data.private);
             };
