@@ -182,7 +182,7 @@ let registerEvents = _.once(function (that) {
                 let name = _.first(opts);
                 let value = _.tail(opts).join(' ').trim();
                 if (id && name) {
-                    if (that.property(id, name, value || null)) {
+                    if (that.property(id, name, value) {
                         reply.call(that, data, `Memo ${id} set property!`);
                     } else {
                         reply.call(that, data, `Memo ${id} not found or wrong property to set!`);
@@ -471,8 +471,8 @@ class Memo {
             let nick = data.user
             let channel = data.channel
             if (channel && (!sendPrivate || nick) && (!dto.secret || ['privileged'].indexOf(data.permission) !== -1)) {
-                let msg = `${dto.icon || '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`;
                 let priv = (sendPrivate && dto.notice != 'true') || dto.hidden == 'true' || dto.secret == 'true';
+                let msg = `${!_.isNil(dto.icon) ? dto.icon : '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`.trim();
                 sendMessage.call(this, priv ? `/msg ${nick} ${msg}` : `${(!_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe) ? '/me ' : ''}${msg}`, channel)
             }
         }
