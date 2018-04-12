@@ -182,7 +182,7 @@ let registerEvents = _.once(function (that) {
                 let name = _.first(opts);
                 let value = _.tail(opts).join(' ').trim();
                 if (id && name) {
-                    if (that.property(id, name, value) {
+                    if (that.property(id, name, value)) {
                         reply.call(that, data, `Memo ${id} set property!`);
                     } else {
                         reply.call(that, data, `Memo ${id} not found or wrong property to set!`);
