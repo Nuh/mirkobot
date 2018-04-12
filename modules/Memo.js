@@ -452,7 +452,7 @@ class Memo {
 
     property(id, name, value) {
         let entity = this.get(id);
-        if (entity && name && ['icon', 'hidden', 'notice', 'secret', 'hiddenName', 'useMe'].indexOf(name) !== -1) {
+        if (entity && name && ['icon', 'hidden', 'notice', 'secret', 'hiddenName', 'useMe', 'ignore'].indexOf(name) !== -1) {
             if (_.isNil(value) && entity[name]) {
                 delete entity[name]
                 debug('Remove property %o for %o memo', name, entity.name);
@@ -470,7 +470,7 @@ class Memo {
         if (data && dto) {
             let nick = data.user
             let channel = data.channel
-            if (channel && (!sendPrivate || nick) && (!dto.secret || ['privileged'].indexOf(data.permission) !== -1)) {
+            if (channel && (!sendPrivate || nick) && (!dto.secret || ['privileged'].indexOf(data.permission) !== -1) && (!dto.ignore || _(dto.ignore.split(',')).castArray().flattenDeep().map(_.trim).map((n) => n.replace('@', '')).value().indexOf(nick) === -1)) {
                 let priv = (sendPrivate && dto.notice != 'true') || dto.hidden == 'true' || dto.secret == 'true';
                 let msg = `${!_.isNil(dto.icon) ? dto.icon : '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`.trim();
                 sendMessage.call(this, priv ? `/msg ${nick} ${msg}` : `${(!_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe) ? '/me ' : ''}${msg}`, channel)
