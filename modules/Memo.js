@@ -472,8 +472,8 @@ class Memo {
             let channel = data.channel
             if (channel && (!sendPrivate || nick) && (!dto.secret || ['privileged'].indexOf(data.permission) !== -1)) {
                 let msg = `${dto.icon || '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`;
-                let priv = (sendPrivate && !dto.notice) || dto.hidden || dto.secret;
-                sendMessage.call(this, priv ? `/msg ${nick} ${msg}` : `${!_.isNil(dto.useMe) ? dto.useMe : this.useMe ? '/me ' : ''}${msg}`, channel)
+                let priv = (sendPrivate && dto.notice != 'true') || dto.hidden == 'true' || dto.secret == 'true';
+                sendMessage.call(this, priv ? `/msg ${nick} ${msg}` : `${(!_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe) ? '/me ' : ''}${msg}`, channel)
             }
         }
         return this
