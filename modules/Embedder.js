@@ -128,7 +128,7 @@ class Embedder {
                 case 'iframe-ignore':
                     var streamers = _.uniq(_.compact(_.map(args.join(' ').split(','), normalizeId)));
                     if (!_.size(streamers)) {
-                        that._reply(`Ignorowani streamerzy: ${ignoreStreamers.join(', ')}`)
+                        that._reply(`Ignorowani streamerzy: ${that.ignoreStreamers.join(', ')}`)
                         return
                     }
 

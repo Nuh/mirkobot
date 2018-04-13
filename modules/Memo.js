@@ -239,7 +239,7 @@ class Memo {
     }
 
     prepare() {
-        this.app.db.defaults({memo: []});
+        this.app.db.defaults({memo: []}).write();
 
         if (!eventHandler) {
             eventHandler = (command, args, data) => {
