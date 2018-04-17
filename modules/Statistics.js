@@ -78,17 +78,18 @@ class Statistics {
 
             exec(cmd, {timeout: 5 * 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
                 if (err) {
-                    debug('Failed generate of statistics page for %o channel:\nReason: %s', channel, err);
-                    debug('Are you sure you have installed perl and executable perl scripts?');
+                    debug('Failed generate of statistics page for %o channel.\nReason: %s', channel, err);
 
                     if((this.failureCount = (this.failureCount || 0) + 1) >= 5) {
+                        debug('Are you sure you have installed perl and executable perl scripts?');
                         debug('Disabling module because catch 5 failures in a row!')
                         this.stop()
                     }
-                    return
-                }
 
-                this.failureCount = Math.max(0, (this.failureCount || 0) - 1)
+                    return
+                } else {
+                    this.failureCount = Math.max(0, (this.failureCount || 0) - 1)
+                }
 
                 let html = stdout.toString()
                 if (html) {

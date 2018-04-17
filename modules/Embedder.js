@@ -98,9 +98,13 @@ class Embedder {
     }
 
     run() {
+        if (this.initialized || this.app.property('embedder:enabled', true)) {
+            this.polling.stop()
+            this.polling.run()
+        }
+
         this.registerEvents()
-        this.polling.stop()
-        this.polling.run()
+        this.initialized = true
     }
 
     stop() {
