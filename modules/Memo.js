@@ -5,8 +5,8 @@ let normalizeId = (str) => (str || '').toString().toLowerCase().replace(/[^\w]/g
 let model = function (id, content, author) {
     return {
         name: id.trim().replace(new RegExp(':$'), ''),
-        author: author,
         content: content,
+        createdBy: author,
         created: new Date(),
         updated: new Date()
     }
@@ -246,7 +246,7 @@ class Memo {
                 if (this.randomEnabled && _.isEqual(normalizeId(command), 'random')) {
                     command = _(this.list()).castArray().flattenDeep().filter((m) => !(m.secret || m.hidden)).map('name').sample();
                 }
-                this.send.call(this, command, data, this.privateMode || data.private);
+                this.send.call(this, command, data, data.private);
             };
         }
     }
@@ -300,6 +300,19 @@ class Memo {
         return this.db.find((obj) => _([obj.name, obj.aliases]).castArray().flattenDeep().compact().map(normalizeId).includes(normalizeId(id))).value();
     }
 
+    rename(id, newName) {
+        let obj = this.get(id);
+        if (obj) {
+            // Modify old memo
+            if (!_.isEqual(obj.name.toLowerCase(), newName.toLowerCase())) {
+                let oldName = obj.name;
+                obj.name = newName;
+                obj.updated = new Date();
+                obj.aliases = obj.aliases || [];
+                obj.aliases.push(obj.name);
+                debug('Renamed memo %o to %o', oldName, newName);
+    }
+
     register(id, content, nick = 'SYSTEM', overwrite = false) {
         // Redo to the newest version
         while (this.redo(id));
@@ -312,9 +325,9 @@ class Memo {
             if (!_.isEqual(obj.name.toLowerCase(), newObj.name.toLowerCase())) {
                 obj.aliases = obj.aliases || [];
                 obj.aliases.push(obj.name);
-                debug('Updated and renamed memo %o <- %o: %s [by %s] (old: %s [by %s])', id, oldObj.name, content, nick, oldObj.content, oldObj.author);
+                debug('Updated and renamed memo %o <- %o: %s [by %s] (old: %s [by %s])', id, oldObj.name, content, nick, oldObj.content, oldObj.createdBy);
             } else {
-                debug('Updated memo %o: %s [by %s] (old: %s [by %s])', id, content, nick, oldObj.content, oldObj.author);
+                debug('Updated memo %o: %s [by %s] (old: %s [by %s])', id, content, nick, oldObj.content, oldObj.createdBy);
             }
             _.extend(obj, newObj);
         } else {
@@ -432,6 +445,7 @@ class Memo {
                 entity.content = [entity.content]
             }
             entity.content.push(content)
+            entity.updated = new Date()
 
             debug('Append a new content to %o memo: %s', entity.name, content)
             return this.save()
@@ -443,6 +457,8 @@ class Memo {
         let entity = this.get(id)
         if (entity && _.isArray(entity.content)) {
             if (_.remove(entity.content, (msg) => _.isEqual(msg.toLowerCase(), content.toLowerCase()))) {
+                entity.updated = new Date()
+
                 debug('Memo %o has removed a content: %s', entity.name, content)
                 return this.save()
             }
@@ -470,10 +486,22 @@ class Memo {
         if (data && dto) {
             let nick = data.user
             let channel = data.channel
-            if (channel && (!sendPrivate || nick) && (!dto.secret || ['privileged'].indexOf(data.permission) !== -1) && (!dto.ignore || _(dto.ignore.split(',')).castArray().flattenDeep().map(_.trim).map((n) => n.replace('@', '')).value().indexOf(nick) === -1)) {
-                let priv = (sendPrivate && dto.notice != 'true') || dto.hidden == 'true' || dto.secret == 'true';
-                let msg = `${!_.isNil(dto.icon) ? dto.icon : '📝'} ${dto.hiddenName ? '' : `${dto.name || id}: `}${_(dto.content).castArray().flattenDeep().sample()}`.trim();
-                sendMessage.call(this, priv ? `/msg ${nick} ${msg}` : `${(!_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe) ? '/me ' : ''}${msg}`, channel)
+            let forcedGlobal = dto.notice != 'true';
+            let forcedPrivate = this.privateMode;
+            let isIgnoredCaller = dto.ignore && _(dto.ignore.split(',')).castArray().flattenDeep().map(_.trim).map((n) => n.replace('@', '')).value().indexOf(nick) !== -1
+
+            let isSendable = channel && !(forcedGlobal || forcedPrivate)
+            let isReadable = !isIgnoredCaller && (dto.secret != 'true' || ['privileged'].indexOf(data.permission) !== -1)
+            if (isSendable && isReadable) {
+                let useMsg = forcedPrivate || (!forcedGlobal && (sendPrivate || dto.hidden == 'true' || dto.secret == 'true'))
+                let useMe = !_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe
+
+                let cmd = useMsg ? `/msg ${nick || 'SYSTEM'} ` : (useMe ? '/me ' : '')
+                let icon = _.isNil(dto.icon) ? '📝 ' : ((dto.icon || '').trim() ? `${dto.icon} ` : '')
+                let prefix = dto.hiddenName || !(dto.name || id).trim() ? '' : `${dto.name || id}: `
+                let msg = _(dto.content).castArray().flattenDeep().sample().trim()
+
+                sendMessage.call(this, `${cmd}${icon}${prefix}${msg}`, channel)
             }
         }
         return this
