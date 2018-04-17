@@ -74,42 +74,39 @@ class Statistics {
             debug('Start generating statistics for %o channel', channel)
 
             let logpath = _.template(path.dirname(logpathTemplate))({channel: channel})
-            let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel=${channel} --dir=${logpath} --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} --configfile=${configfile} -s -o -`
+            let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel="${channel}" --dir="${logpath}" --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} --configfile="${configfile}" -s -o -`
 
-            try {
-                exec(cmd, {timeout: 5 * 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
-                    if (err) {
-                        throw new Error(err);
+            exec(cmd, {timeout: 5 * 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
+                if (err) {
+                    debug('Failed generate of statistics page for %o channel:\nReason: %s', channel, err);
+                    debug('Are you sure you have installed perl and executable perl scripts?');
+
+                    if((this.failureCount = (this.failureCount || 0) + 1) >= 5) {
+                        debug('Disabling module because catch 5 failures in a row!')
+                        this.stop()
                     }
-
-                    this.failureCount = Math.max(0, (this.failureCount || 0) - 1)
-
-                    let html = stdout.toString()
-                    if (html) {
-                        debug('Generated statistics page of %o channel', channel)
-                        uploadHtml(html)
-                            .then((url) => {
-                                debug('Uploaded statistics page of %s channel: %s', channel, url)
-
-                                this.lastUrl = url || this.lastUrl
-                                if (!registerMemo.call(this, channel, url)) {
-                                    this.app.bus().emit('channel::${channel}}::send',
-                                        `${this.app.property('statistics:notify:message', '/me Generated statistics:')} ${url}`)
-                                }
-                            }).error((reason) => {
-                                debug('Failed uploading a statistic page for %o channel: %s', channel, reason || 'no reason')
-                            })
-                    }
-                });
-            } catch (e) {
-                debug('Failed generate of statistics page for %o channel:\nReason: %s', channel, e.message || 'unknown');
-                debug('Are you sure you have installed perl and executable perl scripts?');
-
-                if((this.failureCount = (this.failureCount || 0) + 1) >= 5) {
-                    debug('Disabling module because catch 5 failures in a row!')
-                    this.stop()
+                    return
                 }
-            }
+
+                this.failureCount = Math.max(0, (this.failureCount || 0) - 1)
+
+                let html = stdout.toString()
+                if (html) {
+                    debug('Generated statistics page of %o channel', channel)
+                    uploadHtml(html)
+                        .then((url) => {
+                            debug('Uploaded statistics page of %s channel: %s', channel, url)
+
+                            this.lastUrl = url || this.lastUrl
+                            if (!registerMemo.call(this, channel, url)) {
+                                this.app.bus().emit('channel::${channel}}::send',
+                                    `${this.app.property('statistics:notify:message', '/me Generated statistics:')} ${url}`)
+                            }
+                        }).error((reason) => {
+                            debug('Failed uploading a statistic page for %o channel: %s', channel, reason || 'no reason')
+                        })
+                }
+            });
         })
     }
 
