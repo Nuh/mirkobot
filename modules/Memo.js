@@ -97,6 +97,26 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
+            case 'memo-unalias': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
+                if (that.isAlias(id)) {
+                    let obj = that.get(id);
+                    if (that.unalias(id)) {
+                        reply.call(that, data, `Memo ${obj.name} has removed ${id} alias!`);
+                    } else {
+                        reply.call(that, data, `Memo ${obj.name} has can not remove ${id} alias!`);
+                    }
+                } else if (id) {
+                    reply.call(that, data, `Memo ${id} as alias not found`);
+                } else {
+                    reply.call(that, data, `No passed name, execute: ${command} name!`);
+                }
+                break;
+            }
+
             case 'memo-push': {
                 if (that.readOnlyMode) {
                     break;
