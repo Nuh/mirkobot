@@ -524,17 +524,18 @@ class Memo {
 
     send(id, data, sendPrivate = true) {
         let dto = this.get(id)
-        if (data && dto) {
-            let nick = data.user
-            let channel = data.channel
-            let forcedGlobal = dto.notice != 'true';
-            let forcedPrivate = this.privateMode;
-            let isIgnoredCaller = dto.ignore && _(dto.ignore.split(',')).castArray().flattenDeep().map(_.trim).map((n) => n.replace('@', '')).value().indexOf(nick) !== -1
 
-            let isSendable = channel && !(forcedGlobal || forcedPrivate)
+        if (data && dto) {
+            let nick = data.user;
+            let channel = data.channel;
+            let forcedGlobal = dto.notice == 'true';
+            let forcedPrivate = dto.secret == 'true' || dto.hidden == 'true' || this.privateMode;
+            let isIgnoredCaller = !!(dto.ignore && _(dto.ignore.split(',')).castArray().flattenDeep().map(_.trim).map((n) => n.replace('@', '')).value().indexOf(nick) !== -1);
+
+            let isSendable = channel && !(forcedGlobal && forcedPrivate)
             let isReadable = !isIgnoredCaller && (dto.secret != 'true' || ['privileged'].indexOf(data.permission) !== -1)
             if (isSendable && isReadable) {
-                let useMsg = forcedPrivate || (!forcedGlobal && (sendPrivate || dto.hidden == 'true' || dto.secret == 'true'))
+                let useMsg = forcedPrivate || (!forcedGlobal && sendPrivate)
                 let useMe = !_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe
 
                 let cmd = useMsg ? `/msg ${nick || 'SYSTEM'} ` : (useMe ? '/me ' : '')
