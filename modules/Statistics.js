@@ -74,9 +74,10 @@ class Statistics {
             debug('Start generating statistics for %o channel', channel)
 
             let logpath = _.template(path.dirname(logpathTemplate))({channel: channel})
+            let timeout = (this.app.property('statistics:timeout', 5 * 60) || 0) * 1000
             let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel="${channel}" --dir="${logpath}" --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} --configfile="${configfile}" -s -o -`
 
-            exec(cmd, {timeout: (this.app.property('statistics:timeout', 5 * 60) || 5 * 60) * 1000, windowsHide: true}, (err, stdout, stderr) => {
+            exec(cmd, {timeout: timeout > 0 ? timeout : null, windowsHide: true}, (err, stdout, stderr) => {
                 if (err) {
                     debug('Failed generate of statistics page for %o channel.\nReason: %s', channel, err);
 
