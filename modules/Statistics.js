@@ -76,7 +76,7 @@ class Statistics {
             let logpath = _.template(path.dirname(logpathTemplate))({channel: channel})
             let cmd = `${path.normalize(`${__dirname}/../lib/pisg/pisg`)} --channel="${channel}" --dir="${logpath}" --network=MirkoCzat.pl --format=irssi --maintainer=MirkoBot --cfg LANG=${lang} --cfg TimeOffset=${timeOffset} --configfile="${configfile}" -s -o -`
 
-            exec(cmd, {timeout: 5 * 60 * 1000, windowsHide: true}, (err, stdout, stderr) => {
+            exec(cmd, {timeout: (this.app.property('statistics:timeout', 5 * 60) || 5 * 60) * 1000, windowsHide: true}, (err, stdout, stderr) => {
                 if (err) {
                     debug('Failed generate of statistics page for %o channel.\nReason: %s', channel, err);
 
