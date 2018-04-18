@@ -66,6 +66,22 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
+            case 'memo-rename': {
+                if (that.readOnlyMode) {
+                    break;
+                }
+
+                let newName = (_.first(opts) || '').toString().trim()
+                if (id && newName && that.rename(id, newName)) {
+                    reply.call(that, data, `Memo ${id} has renamed to ${newName}!`);
+                } else if (id && !_.isEmpty(opts)) {
+                    reply.call(that, data, `Memo ${id} not found`);
+                } else {
+                    reply.call(that, data, `No passed names, execute: ${command} oldName newName!`);
+                }
+                break;
+            }
+
             case 'memo-alias': {
                 if (that.readOnlyMode) {
                     break;
@@ -303,14 +319,19 @@ class Memo {
     rename(id, newName) {
         let obj = this.get(id);
         if (obj) {
-            // Modify old memo
-            if (!_.isEqual(obj.name.toLowerCase(), newName.toLowerCase())) {
-                let oldName = obj.name;
+            let oldName = obj.name;
+            if (!newName || _.isEqual(oldName.toLowerCase(), newName.toLowerCase())) {
+                return false;
+            } else {
                 obj.name = newName;
                 obj.updated = new Date();
                 obj.aliases = obj.aliases || [];
                 obj.aliases.push(obj.name);
+
                 debug('Renamed memo %o to %o', oldName, newName);
+                return this.save()
+            }
+        }
     }
 
     register(id, content, nick = 'SYSTEM', overwrite = false) {
