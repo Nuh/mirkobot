@@ -1,9 +1,10 @@
 global._ = require('lodash');
+global.utils = require('./lib/utils');
 global.CronJob = require('cron').CronJob;
 global.Debug = require('debug');
 
 const Config = require('./cli/config');
-const Mirkobot = require('./main.js');
+const Mirkobot = require('./main');
 
 // Prepare configuration module
 let config = new Config({

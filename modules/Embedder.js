@@ -395,7 +395,7 @@ class Embedder {
         }
 
         var prepareEmbeddableContentForShowup = function(data) {
-            return data.embeddable ? generateHtmlShowUp(data).then(uploadHtml) : Promise.resolve(null)
+            return data.embeddable ? generateHtmlShowUp(data).then(utils.uploadHtml) : Promise.resolve(null)
         }
 
         var prepareEmbeddableContentForChaturbate = function(data) {
@@ -411,7 +411,7 @@ class Embedder {
             var urls = _.uniq(_.compact(data.contents))
             var promise = Promise.resolve(_.first(urls))
             if (_.size(urls) > 1) {
-                promise = generateHtmlMultipleIframes(urls).then(uploadHtml)
+                promise = generateHtmlMultipleIframes(urls).then(utils.uploadHtml)
             }
             return promise.then(function(url) { return Promise.resolve(_.extend({ mergeContents: url }, data)) })
         }
@@ -461,15 +461,6 @@ class Embedder {
         var generateHtmlShowUp = function(data) {
             var template = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link href="https://vjs.zencdn.net/6.6.3/video-js.css" rel="stylesheet"> <script src="https://vjs.zencdn.net/6.6.3/video.js"></script> <script src="https://cdn.jsdelivr.net/npm/videojs-flash@2/dist/videojs-flash.min.js"></script> <style> .video-js, #video { position: relative !important; width: 100% !important; height: 100vh !important;}.video-js.vjs-playing .vjs-tech {pointer-events: none;} .video-js .vjs-control.vjs-play-control.vjs-playing, .video-js .vjs-progress-control, .video-js .vjs-time-control { display: none; } </style></head><body style="width: 100vw; height: 100vh; margin: 0; padding: 0; border: 0; overflow: hidden; background: #000;"><center><video id="video" class="video-js vjs-default-skin vjs-big-play-centered" controls autoplay preload="auto" data-setup=\'{"techOrder": ["flash", "html5"]}\'><source type="rtmp/mp4" src="#URL#"></video></center> <script>videojs(document.getElementById(\'video\')).on(\'play\', function(video) { setTimeout(function() {document.getElementById(\'video\').setAttribute(\'style\', \'width: 99.9%!important\'); }, 300); }); </script></body></html>'
             return Promise.resolve(data.streamId ? template.replace('#URL#', `rtmp://5.135.128.167/liveedge/${data.streamId}`) : null)
-        }
-
-        var uploadHtml = function(html) {
-            return !html ? Promise.resolve() : RequestPromise({ method: 'POST', uri: 'https://pste.eu/', form: { 'html-text': html } })
-                .then(function(body) {
-                    var $ = cheerio.load(body)
-                    var url = $('a').attr('href')
-                    return Promise.resolve(url)
-                })
         }
 
         getStreamsInformations(urls)

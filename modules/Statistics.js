@@ -1,20 +1,8 @@
-const Promise = require('bluebird');
-const RequestPromise = require('request-promise');
 const debug = Debug('STATISTICS');
 const moment = require('moment-timezone');
-const cheerio = require('cheerio');
 const exec = require('child_process').exec;
 const path = require('path');
 const fs = require('fs-extra');
-
-let uploadHtml = function(html) {
-    return !html ? Promise.reject() : RequestPromise({ method: 'POST', uri: 'https://pste.eu/', form: { 'html-text': html } })
-        .then(function(body) {
-            var $ = cheerio.load(body)
-            var url = $('a').attr('href')
-            return url ? Promise.resolve(url) : Promise.reject()
-        })
-}
 
 let registerMemo = function(channel, url) {
     let memo = this.app.getModule('memo')
@@ -95,7 +83,7 @@ class Statistics {
                 let html = stdout.toString()
                 if (html) {
                     debug('Generated statistics page of %o channel', channel)
-                    uploadHtml(html)
+                    utils.uploadHtml(html)
                         .then((url) => {
                             debug('Uploaded statistics page of %s channel: %s', channel, url)
 
