@@ -53,6 +53,10 @@ class Mirkoczat {
         }
     }
 
+    getUsername() {
+        return this.token && this.token.login ? this.token.login : null;
+    }
+
     hasChannel(name) {
         return name && name in this.channels;
     }
@@ -66,7 +70,7 @@ class Mirkoczat {
     }
 
     channelJoin(name) {
-        let login = this.token && this.token.login ? this.token.login : 'unknown';
+        let login = this.getUsername() || 'unknown';
         if (name && !this.hasChannel(name)) {
             let channel = new Channel(this.app.queue, this.app.property('server'), name, this.token);
             channel.connect((queue) => {
@@ -84,11 +88,11 @@ class Mirkoczat {
         }
 
         let ch = this.channels[name];
-        let login = this.token && this.token.login ? this.token.login : this.token;
         if (ch) {
             if (ch.instance) {
                 ch.instance.disconnect();
 
+                let login = this.getUsername() || 'unknown';
                 if (!ch.instance.wasConnected) {
                     console.log(`Cannot connected '${login}' to #${name} channel`)
                 } else {

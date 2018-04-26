@@ -16,15 +16,26 @@ let notifyMessage = function(payload) {
 
     // Permissions
     let state = getState.call(this, payload.user);
-    payload = _.extend(payload, {permission: state})
+    payload = _.extend(payload, {permission: state});
+
+    // Message evaluation context
+    let myUsername = this.getUsername();
+    let msg = payload.body.trim().toString() || '';
+
+    /// Directs
+    let direct = payload.private || myUsername && msg.match(new RegExp(`^(\\s?@[\\w-]+[:]?\\s+)?\\s?[@]?(${myUsername})[:]?\\s+`))
+    payload = _.extend(payload, {direct: direct});
+
+    /// Highlights
+    let highlight = direct || false;
+    payload = _.extend(payload, {highlight: highlight});
 
     // Notify message
-    let msg = payload.body.trim().toString() || '';
     this.queue.emit(['channel', this.name, payload.private ? 'private' : payload.type || 'message', state], msg, payload);
 
     // Notify command
     let isCommand = payload.private || payload.body.trim().startsWith('!');
-    let isMyMessage = _.isEqual(payload.user, payload.login)
+    let isMyMessage = _.isEqual(payload.user, payload.login);
     if (isCommand && !isMyMessage) {
         let command = msg.replace(/ .*/, '').replace(/^\!/, '');
         let args = _.compact(msg.split(' ').splice(1));
@@ -63,6 +74,10 @@ class Channel {
             state: null,
             message: null
         };
+    }
+
+    getUsername() {
+        return this.token && this.token.login ? this.token.login : null;
     }
 
     isConnected() {
