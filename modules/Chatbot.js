@@ -135,12 +135,11 @@ class Chatbot {
     }
 
     ask(msg, data) {
-        let ask = createModel(msg, data)
-        if (ask) {
-            this.asks = this.asks || [];
-            this.asks.unshift(ask);
-            this.asks = _.uniqWith(this.asks, (lhs, rhs) => lhs && rhs && _([lhs.msg, rhs.msg]).map(_.trim).map(_.toLower).map(_.ary(1, _.words)).map(_.ary(_.join, 1)).uniq().size() <= 1);
+        this.asks = this.asks || [];
 
+        let ask = createModel(msg, data)
+        if (ask && !_.find(this.asks, (e) => e && _([e.msg, ask.msg]).map(_.trim).map(_.toLower).map(_.ary(_.words, 1)).map(_.ary(_.join, 1)).uniq().size() <= 1)) {
+            this.asks.unshift(ask);
             debug('Asked %o by %s', ask.msg, ask.data.user);
         }
         return this;

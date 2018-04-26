@@ -10,33 +10,28 @@ let getState = function (nick) {
 };
 
 let notifyMessage = function(payload) {
-    if (!payload || !payload.body) {
+    let myUsername = this.getUsername();
+    if (!payload || !payload.body || _.isEqual(payload.user, myUsername)) {
         return;
     }
 
-    // Permissions
     let state = getState.call(this, payload.user);
-    payload = _.extend(payload, {permission: state});
+    let rawMsg = payload.body.trim().toString() || '';
+    let directPattern = myUsername ? new RegExp(`^(\\s?@[\\w-]+[:]?\\s+)?\\s?[@]?(${myUsername})[:]?\\s+`) : null;
 
-    // Message evaluation context
-    let myUsername = this.getUsername();
-    let msg = payload.body.trim().toString() || '';
+    let msg = directPattern ? rawMsg.replace(directPattern, '') : rawMsg
+    let isDirectMessage = payload.private || (directPattern && rawMsg.match(directPattern));
+    let isHighlightMessage = isDirectMessage || false;
 
-    /// Directs
-    let direct = payload.private || myUsername && msg.match(new RegExp(`^(\\s?@[\\w-]+[:]?\\s+)?\\s?[@]?(${myUsername})[:]?\\s+`))
-    payload = _.extend(payload, {direct: direct});
-
-    /// Highlights
-    let highlight = direct || false;
-    payload = _.extend(payload, {highlight: highlight});
+    // Modify payload
+    payload = _.extend(payload, {permission: state, direct: isDirectMessage, highlight: isHighlightMessage});
 
     // Notify message
     this.queue.emit(['channel', this.name, payload.private ? 'private' : payload.type || 'message', state], msg, payload);
 
     // Notify command
-    let isCommand = payload.private || payload.body.trim().startsWith('!');
-    let isMyMessage = _.isEqual(payload.user, payload.login);
-    if (isCommand && !isMyMessage) {
+    let isCommand = msg.trim().startsWith('!');
+    if (isCommand) {
         let command = msg.replace(/ .*/, '').replace(/^\!/, '');
         let args = _.compact(msg.split(' ').splice(1));
         this.queue.emit(['channel', this.name, 'command', state], command, args, payload);
