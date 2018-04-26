@@ -14,7 +14,7 @@ let config = new Config({
 // Initialize application
 let bot = new Mirkobot(config)
 if (!bot.run()) {
-    process.exit()
+    process.exit(1)
 }
 
 // User Input loop

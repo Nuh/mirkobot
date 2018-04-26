@@ -102,7 +102,7 @@ function handleExit() {
             debug('Saved configuration to file on exit');
         }
         if (options.exit) {
-            process.exit();
+            process.exit(code || err && err.stack ? 2 : 0);
         }
     };
 
