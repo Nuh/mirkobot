@@ -2,7 +2,7 @@ const debug = Debug('GUARD:combining-unicode');
 const stripCombiningMarks = require('strip-combining-marks');
 
 var eventHandler = function(rawMsg, data) {
-    if (data.myMessage) {
+    if (data.myMessage || data.permission == 'privileged') {
         return;
     }
 
@@ -37,8 +37,7 @@ class Guard {
     }
 
     run() {
-        this.app.bus('channel::*::message::none', eventHandler.bind(this))
-        this.app.bus('channel::*::message::voiced', eventHandler.bind(this))
+        this.app.bus('channel::*::message', eventHandler.bind(this))
         this.mitigationInterval = setInterval(this.mitigation.bind(this), this.mitigationTime * 1000)
     }
 

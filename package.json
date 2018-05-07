@@ -27,6 +27,7 @@
     "phoenix-channels": "^1.0.0",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
+    "seedrandom": "^2.4.3",
     "strip-combining-marks": "^1.0.0",
     "tough-cookie": "^2.3.4",
     "ws": "^5.1.0",

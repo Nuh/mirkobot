@@ -2,6 +2,9 @@ global._ = require('lodash');
 global.utils = require('./lib/utils');
 global.CronJob = require('cron').CronJob;
 global.Debug = require('debug');
+global.Random = require('seedrandom');
+
+const rnd = new Random.xor4096(null, {global: true, entropy: true});
 
 const Config = require('./cli/config');
 const Mirkobot = require('./main');

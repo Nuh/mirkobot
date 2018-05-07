@@ -9,33 +9,36 @@ let getState = function (nick) {
     return 'none';
 };
 
-let notifyMessage = function(payload) {
+let notifyMessage = function(payload, type = null, args = null) {
     let myUsername = this.getUsername();
     if (!payload || !payload.body) {
         return;
     }
 
-    let state = getState.call(this, payload.user);
     let rawMsg = payload.body.trim().toString() || '';
     let directPattern = myUsername ? new RegExp(`^(\\s?@[\\w-]+[:]?\\s+)?\\s?[@]?(${myUsername})[:]?\\s+`) : null;
 
     let msg = directPattern ? rawMsg.replace(directPattern, '') : rawMsg
+    let permission = getState.call(this, payload.user);
+    let isCommand = msg.trim().startsWith('!');
     let isMyMessage = _.isEqual(payload.user, myUsername)
-    let isDirectMessage = payload.private || (directPattern && rawMsg.match(directPattern));
+    let isDirectMessage = payload.type == 'query' || (directPattern && !!rawMsg.match(directPattern));
     let isHighlightMessage = isDirectMessage || false;
 
-    // Modify payload
-    payload = _.extend(payload, {permission: state, direct: isDirectMessage, highlight: isHighlightMessage, myMessage: isMyMessage});
+    // Extend default payload
+    payload = _.extend(payload, {permission: permission, command: isCommand, direct: isDirectMessage, highlight: isHighlightMessage, myMessage: isMyMessage});
 
     // Notify message
-    this.queue.emit(['channel', this.name, payload.private ? 'private' : payload.type || 'message', state], msg, payload);
+    let queueName = ['channel', this.name, type || payload.type || 'message']
+    let userArgs = _.castArray(args || [])
+    this.queue.emit.apply(this.queue, [queueName].concat(args === null ? [msg] : userArgs).concat([payload]))
 
-    // Notify command
-    let isCommand = msg.trim().startsWith('!');
+    // Notify command to individual queue
     if (isCommand && !isMyMessage) {
+        queueName = ['channel', this.name, 'command', permission]
         let command = msg.replace(/ .*/, '').replace(/^\!/, '');
-        let args = _.compact(msg.split(' ').splice(1));
-        this.queue.emit(['channel', this.name, 'command', state], command, args, payload);
+        let cmdArgs = _.compact(msg.split(' ').splice(1));
+        this.queue.emit.apply(this.queue, [queueName].concat(userArgs).concat([command, cmdArgs, payload]))
     }
 };
 
@@ -139,15 +142,11 @@ class Channel {
                     notifyMessage.call(this, payload);
                     break;
                 }
-                case 'msg:plus': {
-                    this.queue.emit(['channel', this.name, 'vote'], payload);
-                    break;
-                }
 
                 case 'info:cmd': {
                     let msg = payload.body;
                     if (msg.startsWith('Wiadomość od operatorów')) {
-                        let [prefix, nick, message] = msg.split(': ');
+                        let [, nick, message] = msg.split(': ');
                         this.settings.motd = {
                             author: nick,
                             message: (message || '').trim(),
@@ -193,6 +192,15 @@ class Channel {
                     } else if (msg.startsWith('(widoczne tylko dla moderatorów): ')) {
                         // via /mod, ignore now
                     } else if (msg.startsWith('Moderator `') || (msg.startsWith('User ') && msg.indexOf(' uciszony') !== -1)) {
+                        let [, nick, , target] = msg.split('`');
+                        nick = nick.replace(/@.*/, '').trim();
+                        target = target.trim();
+
+                        if (msg.indexOf('` wyrzuca `') !== -1) { // Moderator `BosmanPociagowy@test` wyrzuca `mirek12325`. // kick
+                            notifyMessage.call(this, payload, 'kick', [target, nick])
+                        } else if (msg.indexOf('` wygnał `') !== -1) { // Moderator `BosmanPociagowy@test` wygnał `mirek69520`. // ban
+                            notifyMessage.call(this, payload, 'ban', [target, nick])
+                        }
                         // mod actions, ignore now
                     } else if (msg.indexOf(' ogłasza #rozdajo...') !== -1 || msg.startsWith('Wylosowano ') || msg.indexOf(' losuje liczbę ') !== -1) {
                         // ignore...

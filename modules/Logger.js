@@ -35,12 +35,26 @@ let eventHandler = function(msg, data) {
     }
 }
 
+let stateEventHandler = function(type, who, by, data) {
+    let binding = _.extend(prepareBindings(data), {type: type, who: who, by: by})
+    let path = this.templates.path(binding)
+    let logmessageCreator = this.templates[type || 'state']
+    let logmessage = logmessageCreator ? logmessageCreator(binding) : null
+
+    if (logmessage) {
+        fs.outputFileSync(path, logmessage, {'flag': 'a+'});
+    }
+}
+
 class Logger {
     constructor(applicationInstance) {
         this.app = applicationInstance
 
         this.templates = {
             path: _.template(this.app.property('logger:path', 'logs/${channel}/${date.years}-${date.months}-${date.days}.log')),
+            ban: _.template(this.app.property('logger:ban', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was kicked by ${by}\n${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was banned by ${by}\n')),
+            kick: _.template(this.app.property('logger:kick', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was kicked by ${by}\n')),
+            state: _.template(this.app.property('logger:state', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was ${type}ed by ${by}\n')),
             action: _.template(this.app.property('logger:action', '${date.hours}:${date.minutes}:${date.seconds} * ${login} ${message}\n')),
             message: _.template(this.app.property('logger:message', '${date.hours}:${date.minutes}:${date.seconds} <${nick}> ${message}\n'))
         }
@@ -51,12 +65,15 @@ class Logger {
     }
 
     run() {
-        this.app.bus('channel::*::action::*', eventHandler.bind(this))
-        this.app.bus('channel::*::message::*', eventHandler.bind(this))
+        this.app.bus('channel::*::action', eventHandler.bind(this));
+        this.app.bus('channel::*::message', eventHandler.bind(this));
+        this.app.bus('channel::*::ban', (who, by, data) => stateEventHandler.call(this, 'ban', who, by, data));
+        this.app.bus('channel::*::kick', (who, by, data) => stateEventHandler.call(this, 'kick', who, by, data));
     }
 
     stop() {
-        this.app.bus().offAny(eventHandler)
+        this.app.bus().offAny(eventHandler);
+        this.app.bus().offAny(stateEventHandler);
     }
 
 }

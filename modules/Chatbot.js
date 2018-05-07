@@ -61,8 +61,8 @@ class Chatbot {
     }
 
     run() {
-        this.app.bus('channel::*::private::*', eventHandler.bind(this))
-        this.app.bus('channel::*::message::*', eventHandler.bind(this))
+        this.app.bus('channel::*::query', eventHandler.bind(this))
+        this.app.bus('channel::*::message', eventHandler.bind(this))
         if (!this.askInterval) {
             this.askInterval = setInterval(() => {
                 var ask = this.asks.pop();
