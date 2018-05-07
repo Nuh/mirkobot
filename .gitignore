@@ -262,6 +262,7 @@ $RECYCLE.BIN/
 # End of https://www.gitignore.io/api/git,vim,node,nanoc,macos,linux,eclipse,windows,intellij,tortoisegit
 
 # Application files
+.cache
 db.json
 pisg.cfg
 pisg.config
