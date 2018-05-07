@@ -2,9 +2,13 @@ const debug = Debug('GUARD:combining-unicode');
 const stripCombiningMarks = require('strip-combining-marks');
 
 var eventHandler = function(rawMsg, data) {
+    if (data.myMessage) {
+        return;
+    }
+
     var cleanMsg = stripCombiningMarks(rawMsg) || '';
 
-    var ratio = cleanMsg.length/rawMsg.length;
+    var ratio = rawMsg ? cleanMsg.length/rawMsg.length : 0;
     var maxRatio = Math.min(this.app.property('guard:combiningUnicode:ratio', 0.5), 0.66);
     if (ratio < maxRatio) {
         var channel = data.channel;
@@ -33,9 +37,9 @@ class Guard {
     }
 
     run() {
-        this.app.bus('channel::*::message::none', (msg, data) => eventHandler.call(this, msg, data))
-        this.app.bus('channel::*::message::voiced', (msg, data) => eventHandler.call(this, msg, data))
-        this.mitigationInterval = setInterval(() => this.mitigation.call(this), this.mitigationTime * 1000)
+        this.app.bus('channel::*::message::none', eventHandler.bind(this))
+        this.app.bus('channel::*::message::voiced', eventHandler.bind(this))
+        this.mitigationInterval = setInterval(this.mitigation.bind(this), this.mitigationTime * 1000)
     }
 
     stop() {

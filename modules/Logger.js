@@ -4,9 +4,10 @@ const fs = require('fs-extra');
 let prepareBindings = function(data) {
     return {
         channel: data.channel,
-        nick: `${data.permissions === 'privileged' ? '@' : (data.permissions === 'voiced' ? '+' : ' ')}${data.user}`,
+        mine: data.myMessage,
+        nick: `${data.permission === 'privileged' ? '@' : (data.permissions === 'voiced' ? '+' : ' ')}${data.user}`,
         login: data.user,
-        status: data.permissions,
+        status: data.permission,
         message: data.body,
         date: {
             iso8601: data.date.toISOString(),
@@ -50,8 +51,8 @@ class Logger {
     }
 
     run() {
-        this.app.bus('channel::*::action::*', (msg, data) => eventHandler.call(this, msg, data))
-        this.app.bus('channel::*::message::*', (msg, data) => eventHandler.call(this, msg, data))
+        this.app.bus('channel::*::action::*', eventHandler.bind(this))
+        this.app.bus('channel::*::message::*', eventHandler.bind(this))
     }
 
     stop() {

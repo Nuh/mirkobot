@@ -3,8 +3,12 @@ const Promise = require('bluebird');
 const Cleverbot = require("cleverbot.io");
 
 let eventHandler = function (msg, data) {
-    if (data.direct) {
-        let fixedMsg = msg.toString().replace(/(^|\s)@/, ' ').trim()
+    if (data.myMessage) {
+        return;
+    }
+
+    let fixedMsg = msg.toString().replace(/(^|\s)@/, ' ').trim()
+    if (data.direct || (data.highlight && false)) { // TODO
         this.ask(fixedMsg, data);
     }
 }

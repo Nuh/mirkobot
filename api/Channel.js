@@ -11,7 +11,7 @@ let getState = function (nick) {
 
 let notifyMessage = function(payload) {
     let myUsername = this.getUsername();
-    if (!payload || !payload.body || _.isEqual(payload.user, myUsername)) {
+    if (!payload || !payload.body) {
         return;
     }
 
@@ -20,18 +20,19 @@ let notifyMessage = function(payload) {
     let directPattern = myUsername ? new RegExp(`^(\\s?@[\\w-]+[:]?\\s+)?\\s?[@]?(${myUsername})[:]?\\s+`) : null;
 
     let msg = directPattern ? rawMsg.replace(directPattern, '') : rawMsg
+    let isMyMessage = _.isEqual(payload.user, myUsername)
     let isDirectMessage = payload.private || (directPattern && rawMsg.match(directPattern));
     let isHighlightMessage = isDirectMessage || false;
 
     // Modify payload
-    payload = _.extend(payload, {permission: state, direct: isDirectMessage, highlight: isHighlightMessage});
+    payload = _.extend(payload, {permission: state, direct: isDirectMessage, highlight: isHighlightMessage, myMessage: isMyMessage});
 
     // Notify message
     this.queue.emit(['channel', this.name, payload.private ? 'private' : payload.type || 'message', state], msg, payload);
 
     // Notify command
     let isCommand = msg.trim().startsWith('!');
-    if (isCommand) {
+    if (isCommand && !isMyMessage) {
         let command = msg.replace(/ .*/, '').replace(/^\!/, '');
         let args = _.compact(msg.split(' ').splice(1));
         this.queue.emit(['channel', this.name, 'command', state], command, args, payload);
