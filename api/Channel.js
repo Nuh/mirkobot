@@ -193,12 +193,12 @@ class Channel {
                         // via /mod, ignore now
                     } else if (msg.startsWith('Moderator `') || (msg.startsWith('User ') && msg.indexOf(' uciszony') !== -1)) {
                         let [, nick, , target] = msg.split('`');
-                        nick = nick.replace(/@.*/, '').trim();
-                        target = target.trim();
+                        nick = nick ? nick.replace(/@.*/, '').trim() : null;
+                        target = target ? target.trim() : null;
 
-                        if (msg.indexOf('` wyrzuca `') !== -1) { // Moderator `BosmanPociagowy@test` wyrzuca `mirek12325`. // kick
+                        if (nick && target && msg.indexOf('` wyrzuca `') !== -1) { // Moderator `BosmanPociagowy@test` wyrzuca `mirek12325`. // kick
                             notifyMessage.call(this, payload, 'kick', [target, nick])
-                        } else if (msg.indexOf('` wygnał `') !== -1) { // Moderator `BosmanPociagowy@test` wygnał `mirek69520`. // ban
+                        } else if (nick && target && msg.indexOf('` wygnał `') !== -1) { // Moderator `BosmanPociagowy@test` wygnał `mirek69520`. // ban
                             notifyMessage.call(this, payload, 'ban', [target, nick])
                         }
                         // mod actions, ignore now
