@@ -52,9 +52,9 @@ class Logger {
 
         this.templates = {
             path: _.template(this.app.property('logger:path', 'logs/${channel}/${date.years}-${date.months}-${date.days}.log')),
-            ban: _.template(this.app.property('logger:ban', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was kicked by ${by}\n${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was banned by ${by}\n')),
-            kick: _.template(this.app.property('logger:kick', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was kicked by ${by}\n')),
-            state: _.template(this.app.property('logger:state', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was ${type}ed by ${by}\n')),
+            ban: _.template(this.app.property('logger:ban', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was kicked from channel by ${by}\n${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was banned from channel by ${by}\n')),
+            kick: _.template(this.app.property('logger:kick', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was kicked from channel by ${by}\n')),
+            state: _.template(this.app.property('logger:state', '${date.hours}:${date.minutes}:${date.seconds} -!- ${who} was ${type}ed from channel by ${by}\n')),
             action: _.template(this.app.property('logger:action', '${date.hours}:${date.minutes}:${date.seconds} * ${login} ${message}\n')),
             message: _.template(this.app.property('logger:message', '${date.hours}:${date.minutes}:${date.seconds} <${nick}> ${message}\n'))
         }
