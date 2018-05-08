@@ -33,9 +33,9 @@ class Mirkoczat {
     }
 
     run() {
-        this.app.bus('mirkoczat::send', (message) => this.sendMessage.call(this, message));
+        this.app.bus('mirkoczat::send', (message) => this.sendMessage.call(this, message, null, false));
         this.app.bus('mirkoczat::send::priority', (message) => this.sendMessage.call(this, message, null, true));
-        this.app.bus('mirkoczat::execute', (command, /*...*/) => this.execute.call(this, command, _.toArray(arguments).splice(1), null));
+        this.app.bus('mirkoczat::execute', (command, ...args) => this.execute.call(this, command, args, null));
 
         if (!this.reconnectorInterval) {
             this.reconnectorInterval = setInterval(() => {
