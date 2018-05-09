@@ -61,6 +61,14 @@ class Mirkoczat {
         return name && name in this.channels;
     }
 
+    getChannel(name) {
+        return this.hasChannel(name) ? this.channels[name] : null
+    }
+
+    getChannelInstance(name) {
+        return this.hasChannel(name) ? this.channels[name].instance : null
+    }
+
     channelRejoin(name) {
         if (name) {
             this.channelLeave(name, true);

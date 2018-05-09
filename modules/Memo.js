@@ -150,7 +150,9 @@ let registerEvents = _.once(function (that) {
             }
 
 
-            case 'memo-undo': {
+            case 'memo-back':
+            case 'memo-undo':
+            case 'memo-previous': {
                 if (that.readOnlyMode) {
                     break;
                 }
@@ -170,7 +172,9 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
-            case 'memo-redo': {
+            case 'memo-newer':
+            case 'memo-redo':
+            case 'memo-next': {
                 if (that.readOnlyMode) {
                     break;
                 }
@@ -214,7 +218,9 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
-            case 'memo-property': {
+            case 'memo-prop':
+            case 'memo-property':
+            case 'memo-properties': {
                 let name = _.first(opts);
                 let value = _.tail(opts).join(' ').trim();
                 if (id && name) {
@@ -229,7 +235,9 @@ let registerEvents = _.once(function (that) {
                 break;
             }
 
-            case 'memo-info': {
+            case 'memo-info':
+            case 'memo-data':
+            case 'memo-metadata': {
                 let obj = that.get(id);
                 if (obj) {
                     reply.call(that, data, `Memo metadata - ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => { let key = _.lowerCase(k); let val = _.toString(v); return key && val ? `${key}: ${val}` : ''}).compact().join('; ')}`);
@@ -282,7 +290,7 @@ class Memo {
                 if (this.randomEnabled && _.isEqual(normalizeId(command), 'random')) {
                     command = _(this.list()).castArray().flattenDeep().filter((m) => !(m.secret || m.hidden)).map('name').sample();
                 }
-                this.send.call(this, command, data, data.private);
+                this.send.call(this, command, args, data, data.private);
             };
         }
     }
@@ -522,7 +530,7 @@ class Memo {
         return false
     }
 
-    send(id, data, sendPrivate = true) {
+    send(id, args, data, sendPrivate = true) {
         let dto = this.get(id)
 
         if (data && dto) {
@@ -541,9 +549,32 @@ class Memo {
                 let cmd = useMsg ? `/msg ${nick || 'SYSTEM'} ` : (useMe ? '/me ' : '')
                 let icon = _.isNil(dto.icon) ? '📝 ' : ((dto.icon || '').trim() ? `${dto.icon} ` : '')
                 let prefix = dto.hiddenName || !(dto.name || id).trim() ? '' : `${dto.name || id}: `
-                let msg = _(dto.content).castArray().flattenDeep().sample().trim()
+                let templateMsg = _(dto.content).castArray().flattenDeep().sample().trim();
 
-                sendMessage.call(this, `${cmd}${icon}${prefix}${msg}`, channel)
+                try {
+                    let chInstance = this.app.getModule('mirkoczat').getChannelInstance(channel);
+                    let chUsers = chInstance.getUsers();
+                    let chUsersLogins = _.map(chUsers, 'login');
+
+                    let userArgs = _.castArray(args);
+                    let userInput = userArgs.join(' ');
+                    let msg = _.template(templateMsg, {
+                            variable: 'args',
+                            imports: {
+                                me: chInstance.getUsername(),
+                                nick: nick,
+                                icon: icon,
+                                input: userInput,
+                                users: chUsersLogins,
+                                random: _.sample(chUsersLogins),
+                                rawUsers: chUsers
+                            }
+                        })(userArgs);
+
+                    sendMessage.call(this, `${cmd}${icon}${prefix}${msg}`, channel)
+                } catch (e) {
+                    debug('Failed compile and send memo %o: %o', id, e);
+                }
             }
         }
         return this

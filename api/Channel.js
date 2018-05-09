@@ -75,10 +75,6 @@ class Channel {
         };
     }
 
-    getUsername() {
-        return this.token && this.token.login ? this.token.login : null;
-    }
-
     isConnected() {
         return this.connected && !_.isNil(this.ws)
     }
@@ -341,6 +337,14 @@ class Channel {
         }
 
         return this
+    }
+
+    getUsername() {
+        return this.token && this.token.login ? this.token.login : null;
+    }
+
+    getUsers() {
+        return _.castArray(this.users);
     }
 
     sendMessage(message, priority = false) {
