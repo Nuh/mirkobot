@@ -5,11 +5,6 @@ const RequestPromise = require('request-promise');
 const Cookie = require('tough-cookie');
 const cheerio = require('cheerio');
 
-const urls = [
-    'https://patostreamy.herokuapp.com/api/channels?platform=youtube',
-    'https://patostreamy.herokuapp.com/api/channels?platform=showup'
-];
-
 var convertRawToModel = function(data) {
     return {
         id: normalizeId(data.title),
@@ -80,14 +75,33 @@ var normalizeStreamId = function(url) {
     }
 }
 
+// Communication with channel
+let _reply = function(data, msg) {
+    let nick = data ? data.user || data : null;
+    let channel = data ? data.channel : '';
+    return nick && msg ? _sendMessage.call(this, `/msg ${nick} ${msg}`, channel) : Promise.reject('No nick or message to reply!');
+}
+
+let _sendMessage = function(msg, channel = '') {
+    var queue = channel ? `channel::${channel}::send` : 'mirkoczat::send'
+    this.app.bus().emit(queue, msg)
+    return Promise.resolve()
+}
+
 class Embedder {
     constructor(applicationInstance) {
-        var pollingInterval = Math.max(applicationInstance.property('embedder:pollingInterval', 60000), 10000)
+        // Config
+        this.pollingInterval = Math.max(applicationInstance.property('embedder:pollingInterval', 60 * 1000), 10 * 1000)
+        this.youTubeApiKey = applicationInstance.property('embedder:youtube:apiKey')
+        this.api = _.castArray(applicationInstance.property('embedder:api', [
+                               'https://patostreamy.herokuapp.com/api/channels?platform=youtube',
+                               'https://patostreamy.herokuapp.com/api/channels?platform=showup']));
 
-        this.app = applicationInstance
-        this.polling = AsyncPolling((callback) => this.execute.call(this, callback), pollingInterval)
-        this.registeredEvents = false
+        // Instances
+        this.app = applicationInstance;
+        this.polling = AsyncPolling((callback) => this.execute.call(this, callback), this.pollingInterval);
 
+        // DATAs
         this.customStreams = [];
         this.ignoreStreamers = []
         this.lastReceivedStreamers = []
@@ -127,53 +141,50 @@ class Embedder {
             var streams = _.map(that.lastReceivedStreamers, function(s) { return `${s.name || s.id} (${s.custom ? 'custom ' : ''}${s.platform})${s.embeddable ? '' : ' - NOT EMBEDDABLE'}` }).join(', ').trim() || 'brak osadzeń'
             return `Lista osadzeń: ${streams}`
         }
-        this.app.bus('channel::*::command::privileged', function(command, args, data) {
+
+        this.app.bus('channel::*::command::privileged', (command, args, data) => {
             switch (command) {
                 case 'iframe-ignore':
                     var streamers = _.uniq(_.compact(_.map(args.join(' ').split(','), normalizeId)));
                     if (!_.size(streamers)) {
-                        that._reply(`Ignorowani streamerzy: ${that.ignoreStreamers.join(', ')}`)
+                        _reply.call(that, `Ignorowani streamerzy: ${that.ignoreStreamers.join(', ')}`)
                         return
                     }
-
-                    streamers = _.pull(streamers, that.ignoreStreamers)
-                    if (_.size(streamers)) {
-                        that.ignoreStreamers = that.ignoreStreamers.concat(streamers);
-                        that._reply(data, `Zignorowano stream: ${streamers.join(', ')}`);
-                        that.refresh()
+                    if (that.ignore(streamers)) {
+                        _reply.call(this, data, `Zignorowano stream: ${streamers.join(', ')}`);
                     }
                 break;
 
                 case 'iframe-unignore':
                     var streamers = _.uniq(_.compact(_.map(args.join(' ').split(','), normalizeId)));
                     if (!_.size(streamers)) {
-                        that._reply(data, 'Nie podano nazwę streamera do usunięcia z listy ignorowanych!')
+                        _reply.call(that, data, 'Nie podano nazwę streamera do usunięcia z listy ignorowanych!')
                         return
                     }
 
                     streamers = _.intersection(streamers, that.ignoreStreamers)
                     if(_.size(streamers)) {
                         that.ignoreStreamers = _.difference(that.ignoreStreamers, streamers);
-                        that._reply(data, `Przestano ignorować stream: ${streamers.join(',')}`);
-                        that.refresh();
+                        _reply.call(that, data, `Przestano ignorować stream: ${streamers.join(',')}`);
+                        that.run();
                     }
                 break;
 
                 case 'iframe-refresh':
                     that.refresh()
-                    that._reply(data, 'Osadzenie zostało odświeżone!')
+                    _reply.call(that, data, 'Osadzenie zostało odświeżone!')
                 break;
 
                 case 'iframe-run':
                 case 'iframe-auto':
                 case 'iframe-start':
                     that.refresh()
-                    that._reply(data, 'Auto-osadzanie streamerów zostało włączone');
+                    _reply.call(that, data, 'Auto-osadzanie streamerów zostało włączone');
                 break;
 
                 case 'iframe-stop':
                     that.stop();
-                    that._reply(data, 'Auto-osadzanie zostało wyłączone!');
+                    _reply.call(that, data, 'Auto-osadzanie zostało wyłączone!');
                 break;
 
                 case 'iframe':
@@ -187,14 +198,14 @@ class Embedder {
                                 modified = true
                                 that.customStreams.push(m)
                             } else {
-                                that._reply(data, `Stream ${url} dodano już wcześniej!`);
+                                _reply.call(that, data, `Stream ${url} dodano już wcześniej!`);
                             }
                         });
                         if (modified) {
                             that.refresh();
                         }
                     } else {
-                        that._sendMessage(streamsList(), data.channel)
+                        _sendMessage.call(this, streamsList(), data.channel)
                     }
                 break;
 
@@ -210,9 +221,9 @@ class Embedder {
                             if (stream) {
                                 modified = true
                                 that.customStreams = _.difference(that.customStreams, [stream]);
-                                that._reply(data, `Usunięto ręcznie dodanego streama: ${stream.name || stream.id}${stream.title ? ' - ' + stream.title : ''}`)
+                                _reply.call(that, data, `Usunięto ręcznie dodanego streama: ${stream.name || stream.id}${stream.title ? ' - ' + stream.title : ''}`)
                             } else {
-                                that._reply(data, `Nie znaleziono ręcznie dodanego streama: ${m.name || m.id || id}`);
+                                _reply.call(that, data, `Nie znaleziono ręcznie dodanego streama: ${m.name || m.id || id}`);
                             }
                         }
                         if (modified) {
@@ -224,20 +235,35 @@ class Embedder {
                 case 'iframe-remove-all':
                 case 'iframe-delete-all':
                     if(_.size(that.customStreams)) {
-                        that._reply(data, 'Usunięto wszystkie manualne osadzenia')
+                        _reply.call(that, data, 'Usunięto wszystkie manualne osadzenia')
                         that.customStreams = [];
                         that.refresh()
                     }
                 break;
 
                 case 'iframe-list':
-                    that._reply(data, streamsList())
+                    _reply.call(that, data, streamsList())
                 break;
             };
         });
     }
 
-    execute(callback) {
+    ignore(names) {
+        let oldIgnored =_.castArray(this.ignoreStreamers);
+        let newIgnored = Array.from(new Set(oldIgnored.concat(_.castArray(names))));
+        if (!_.isEqual(oldIgnored, newIgnored)) {
+            let diffs = _.without.apply(_, [newIgnored].concat(oldIgnored));
+
+            this.ignoreStreamers = newIgnored;
+            this.run();
+
+            debug('Ignore streamer: %o\nAll ignored streamers: %o', diffs, this.ignoreStreamers);
+            return diffs;
+        }
+        return false;
+    }
+
+    execute(callback = _.noop) {
         var that = this
 
         var isNeedRefresh = function(data) {
@@ -255,73 +281,69 @@ class Embedder {
 
                 for (var i = 0; i < a.length; ++i) {
                     if (!_.isEqual(convert(a), convert(b))) {
-                        return false
+                        return false;
                     }
                 }
 
-                return true
+                return true;
             })
         }
 
         // Steps
-        var getStreamsInformations = function(urls) {
-            var promise = Promise.map(urls, getStreamInformation)
-                .reduce(function(prev, cur) {
-                    return prev.concat(cur);
-                }, []);
-            return promise
-        }
+        var getOnlineStreams = function(urls) {
+            let _getOnlineStreams = (url) => !url ? Promise.resolve() : RequestPromise({ uri: url, json: true })
+                                            .then((data) => Promise.resolve(_.map(data, convertRawToModel.bind(this))));
 
-        var getStreamInformation = function(url) {
-            return RequestPromise({ uri: url, json: true })
-                .then(function(data) {
-                    var d = _.chain(data)
-                        .map(convertRawToModel)
+            return Promise.map(_.castArray(urls), _getOnlineStreams.bind(this))
+                    .then((data) => Promise.resolve(_.chain(data)
+                        .flattenDeep()
                         .filter('online')
-                        .filter(function(data) { return !_.includes(that.ignoreStreamers, data.id) })
-                        .value()
-                    return Promise.resolve(d)
-                })
+                        .filter((data) => !_.find(that.ignoreStreamers, (ignore) => data && ignore && (normalizeId(ignore) === normalizeId(data.id))))
+                        .value()));
         }
 
-        var extendContentInformation = function(data) {
-            return Promise.map(data || [], extendContentInformationGeneric)
-                    .reduce(function(prev, cur) {
-                        return prev.concat(cur);
-                    }, [])
-                    .then(function(data) {
-                        return data
-                    })
+        var extendStreamInformations = function(streams) {
+            let _extendContentInformations = (stream) => {
+                 switch ((stream || {}).platform) {
+                     case 'youtube':
+                         return extendYouTubeStreamInformations.call(this, stream);
+                     case 'showup':
+                         return extendShowUpStreamInformations.call(this, stream);
+                 }
+
+                 stream.embeddable = true
+                 return Promise.resolve(stream)
+            };
+
+            return Promise.map(_.castArray(streams), _extendContentInformations.bind(this))
+                .then((stream) => Promise.resolve(_.flattenDeep(stream)));
         }
 
-        var extendContentInformationGeneric = function(data) {
-            switch ((data || {}).platform) {
-                case 'youtube':
-                    return extendContentInformationForYoutube(data)
-                case 'showup':
-                    return extendContentInformationForShowup(data)
-            }
-            return extendContentInformationForCustom(data)
-        }
-
-        var extendContentInformationForYoutube = function(data) {
-            var id = data.streamId
-            return that.getYouTubeStreamData(id)
+        var extendYouTubeStreamInformations = function(data) {
+            let id = data.streamId
+            return getYouTubeStreamData(id, this.youTubeApiKey)
                     .then(function (ytData) {
-                        if (ytData && ytData.snippet && ytData.status) {
-                            var name = ytData.snippet.channelTitle || data.id
+                        if (ytData.snippet) {
+                            let name = ytData.snippet.channelTitle || data.id
                             data.id = normalizeId(name)
                             data.name = name
                             data.title = ytData.snippet.title || ''
+                        }
+                        if (ytData.status) {
                             data.embeddable = id && ytData.status.embeddable !== false
-                        } else {
-                            debug(`No found any details for stream: ${data.name || data.id} (youtube)!`)
                         }
                         return Promise.resolve(data)
                     })
+                    .catch((error) => {
+                        debug('Error while gathering details of stream %s (%s): %o', data.name || data.id, 'youtube', error);
+                        if (_.isNil(data.embeddable)) {
+                            data.embeddable = !!id;
+                        }
+                        return Promise.resolve(data);
+                    });
         }
 
-        var extendContentInformationForShowup = function(data) {
+        var extendShowUpStreamInformations = function(data) {
             var showupUrl = 'beta.showup.tv'
             var jarFemale = RequestPromise.jar();
             jarFemale.setCookie(new Cookie.Cookie({ key: "accept_rules", value: "true", domain: showupUrl, httpOnly: false }), 'https://' + showupUrl);
@@ -357,11 +379,6 @@ class Embedder {
 
                     return Promise.resolve(data)
                 })
-        }
-
-        var extendContentInformationForCustom = function(data) {
-            data.embeddable = true
-            return Promise.resolve(data)
         }
 
 
@@ -434,7 +451,7 @@ class Embedder {
                             .value()
 
                         for (var i in messages) {
-                            that._sendMessage(messages[i])
+                            _sendMessage.call(that, messages[i])
                         }
                     })
             }
@@ -463,61 +480,49 @@ class Embedder {
             return Promise.resolve(data.streamId ? template.replace('#URL#', `rtmp://5.135.128.167/liveedge/${data.streamId}`) : null)
         }
 
-        getStreamsInformations(urls)
-            .then(function(data) {
-                return Promise.resolve(_.uniqBy(data.concat(that.customStreams), 'streamId', 'platform'))
-            })
-            .then(function(data) {
-                if (!isNeedRefresh(data)) {
-                    return Promise.resolve()
+        return getOnlineStreams(this.api)
+            .then((data) => Promise.resolve(_.uniqBy(data.concat(this.customStreams), 'streamId', 'platform')))
+            .then((data) => isNeedRefresh(data) ? Promise.resolve(this.lastReceivedStreamers = data) : Promise.reject('No found changes'))
+            .then((data) => {
+                if(!_.size(data)) {
+                    this.embed();
+                    return Promise.reject('No streams');
                 }
-
-                that.lastReceivedStreamers = data;
-                debug('Found changes of streams')
-
-                if (!_.size(data)) {
-                    that.embed('https://pste.eu/p/a2hQ.html');
-                    debug('No stream now')
-                }
-
-                return Promise.resolve(data)
+                return Promise.resolve(data);
             })
-            .then(extendContentInformation)
-            .then(prepareEmbeddableContent)
-            .then(mergeContents)
-            .then(executeCommands)
-
-        debug('Stream data updated')
-        return (callback || _.noop)()
-    }
-
-    getYouTubeStreamData(id) {
-        var apiKey = this.app.property('embedder:youtube:apiKey')
-        return !id || !apiKey ? Promise.resolve() : RequestPromise({ method: 'GET', uri: `https://www.googleapis.com/youtube/v3/videos?id=${id}&key=${apiKey}&part=snippet,status`, json: true })
-            .then(function(ytData) {
-                return Promise.resolve(_.first((ytData || {}).items))
-            })
+            .then(extendStreamInformations.bind(this))
+            .then(prepareEmbeddableContent.bind(this))
+            .then(mergeContents.bind(this))
+            .then(executeCommands.bind(this))
+            .then((data) => (callback || _.noop)(data, null), (error) => {
+                debug('External API - received reject: %o', error);
+                return (callback || _.noop)(null, error);
+            });
     }
 
     embed(url) {
-        return this._sendMessage(`/iframe ${url}`);
-    }
-
-    // Communication with channel
-    _reply(data, msg) {
-        var nick = data ? data.user || data : null
-        var channel = data ? data.channel : ''
-        if (nick && msg) {
-            this._sendMessage(`/msg ${nick} ${msg}`, channel);
+        if (url && url.trim()) {
+            debug('Embedding page: %s' , url);
+            return _sendMessage.call(this, `/iframe ${url}`);
         }
-        return Promise.resolve()
-    }
 
-    _sendMessage(msg, channel = '') {
-        var queue = channel ? `channel::${channel}::send` : 'mirkoczat::send'
-        this.app.queue.emit(queue, msg)
-        return Promise.resolve()
+        debug('Cleanup embed')
+        return _sendMessage.call(this, '/iframe ');
     }
 }
 
-module.exports = Embedder
+let getYouTubeStreamData = function (id, key) {
+    if (!id) {
+        return Promise.reject('No id of youtube stream!')
+    }
+    if (!key) {
+        return Promise.reject('No key to YouTube API!');
+    }
+    return RequestPromise({ method: 'GET', uri: `https://www.googleapis.com/youtube/v3/videos?id=${id}&key=${key}&part=snippet,status`, json: true })
+        .then((ytData) => {
+            let data = _.first((ytData || {}).items)
+            return data && data.status ? Promise.resolve(data) : Promise.reject('No status of youtube stream!');
+        });
+}
+
+module.exports = Embedder;
