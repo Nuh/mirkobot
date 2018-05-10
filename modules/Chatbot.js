@@ -8,7 +8,7 @@ let eventHandler = function (msg, data) {
     }
 
     let fixedMsg = msg.toString().replace(/(^|\s)@/, ' ').trim()
-    if (data.direct || (data.highlight && false)) { // TODO
+    if (!data.command && (data.direct || (data.highlight && false))) { // TODO
         this.ask(fixedMsg, data);
     }
 }
