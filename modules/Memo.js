@@ -554,7 +554,7 @@ class Memo {
                 try {
                     let chInstance = this.app.getModule('mirkoczat').getChannelInstance(channel);
                     let chUsers = chInstance.getUsers();
-                    let chUsersLogins = _.map(chUsers, (user) => user.login.replace(/@+:/g, ''));
+                    let chUsersLogins = _.map(chUsers, (user) => user.login.replace(/[@+:]/g, ''));
 
                     let userArgs = _.castArray(args);
                     let userInput = userArgs.join(' ');
@@ -573,7 +573,7 @@ class Memo {
                                 raw: userInput,
                                 input: userInput,
 
-                                target: _.map(userArgs, (arg) => `@${arg}`).join(', ') || nick,
+                                target: _.map(userArgs, (arg) => `@${arg.replace(/[@+:]/g, '')}`).join(', ') || `@${nick}`,
 
                                 users: chUsersLogins,
                                 random: _.sample(chUsersLogins),
