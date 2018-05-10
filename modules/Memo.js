@@ -554,7 +554,7 @@ class Memo {
                 try {
                     let chInstance = this.app.getModule('mirkoczat').getChannelInstance(channel);
                     let chUsers = chInstance.getUsers();
-                    let chUsersLogins = _.map(chUsers, (user) => user.login.replace(/@+:/g. ''));
+                    let chUsersLogins = _.map(chUsers, (user) => user.login.replace(/@+:/g, ''));
 
                     let userArgs = _.castArray(args);
                     let userInput = userArgs.join(' ');
