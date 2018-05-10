@@ -240,7 +240,7 @@ let registerEvents = _.once(function (that) {
             case 'memo-metadata': {
                 let obj = that.get(id);
                 if (obj) {
-                    reply.call(that, data, `Memo ${obj.id} metadata - content: ${_.size(_.castArray(obj.content)) > 1 ? `${_.size(obj.content)} messages...` : obj.content}; ${_(obj).omitBy((v, k) => ['id', 'content', 'contents', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => { let key = _.lowerCase(k); let val = _.toString(v); return key && val ? `${key}: ${val}` : ''}).compact().join('; ')}`);
+                    reply.call(that, data, `Memo metadata: name: ${obj.name}; content: ${_.size(_.castArray(obj.content)) > 1 ? `${_.size(obj.content)} messages...` : obj.content}; ${_(obj).omitBy((v, k) => ['id', 'name', 'content', 'previous', 'next'].indexOf(k) !== -1).map((v, k) => { let key = _.lowerCase(k); let val = _.toString(v); return key && val ? `${key}: ${val}` : ''}).compact().join('; ')}; undo history: ${obj.previous ? 'exists' : 'not exists'}; redo history: ${obj.next ? 'exists' : 'not exists'}`);
                 } else if (id) {
                     reply.call(that, data, `Memo ${id} not found`);
                 } else {
