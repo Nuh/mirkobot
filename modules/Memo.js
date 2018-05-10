@@ -555,14 +555,16 @@ class Memo {
                     let chInstance = this.app.getModule('mirkoczat').getChannelInstance(channel);
                     let chUsers = chInstance.getUsers();
                     let chUsersLogins = _.map(chUsers, (user) => user.login.replace(/[@+:]/g, ''));
+                    let chSettings = chInstance.getSettings();
+                    let botNickname = chInstance.getUsername();
 
                     let userArgs = _.castArray(args);
                     let userInput = userArgs.join(' ');
                     let msg = _.template(templateMsg, {
                             variable: 'args',
                             imports: {
-                                me: chInstance.getUsername(),
-                                bot: chInstance.getUsername(),
+                                me: botNickname,
+                                bot: botNickname,
 
                                 nick: nick,
                                 sender: nick,
@@ -579,7 +581,9 @@ class Memo {
                                 random: _.sample(chUsersLogins),
                                 rawUsers: chUsers,
 
-                                execute: (cmd, priority = false) => chInstance.sendMessage(cmd, priority)
+                                channel: chSettings,
+
+                                execute: (cmd, priority = false) => chInstance.sendMessage.call(chInstance, cmd, priority)
                             }
                         })(userArgs);
 

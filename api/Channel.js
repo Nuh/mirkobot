@@ -22,8 +22,8 @@ let notifyMessage = function(payload, type = null, args = null) {
     let permission = getState.call(this, payload.user);
     let isCommand = msg.trim().startsWith('!');
     let isMyMessage = _.isEqual(payload.user, myUsername)
-    let isDirectMessage = payload.type == 'query' || (directPattern && !!rawMsg.match(directPattern));
-    let isHighlightMessage = isDirectMessage || false;
+    let isDirectMessage = !isMyMessage && (payload.type == 'query' || (directPattern && !!rawMsg.match(directPattern)));
+    let isHighlightMessage = isDirectMessage || (!isMyMessage && !isCommand && this.highlightMatcher && !!msg.match(this.highlightMatcher));
 
     // Extend default payload
     payload = _.extend(payload, {permission: permission, command: isCommand, direct: isDirectMessage, highlight: isHighlightMessage, myMessage: isMyMessage});
@@ -43,13 +43,14 @@ let notifyMessage = function(payload, type = null, args = null) {
 };
 
 class Channel {
-    constructor(queue, server, room, token) {
+    constructor(queue, server, room, token, highlightMatcher) {
         this.debug = Debug(`CHANNEL:${room}`);
         this.queue = queue;
 
         this.url = encodeURI(`${server}?tag=${room}&token=${token && token.token ? token.token : token}`);
         this.name = room;
         this.token = token;
+        this.highlightMatcher = highlightMatcher;
         this.queuedMessages = [];
 
         this.topic = '';
@@ -117,7 +118,7 @@ class Channel {
                     }
                     if (!this.intervals.message) {
                         this.intervals.message = setInterval(() => {
-                            this.send.call(this, (this.queuedMessages || []).shift(), true)
+                            this.send.call(this, _.castArray(this.queuedMessages).shift(), true)
                         }, 1000)
                     }
 
@@ -347,8 +348,12 @@ class Channel {
         return _.castArray(this.users);
     }
 
+    getSettings() {
+        return this.settings;
+    }
+
     sendMessage(message, priority = false) {
-        let q = this.queuedMessages;
+        let q = _.clone(this.queuedMessages);
         q[priority ? 'unshift' : 'push'].call(q, message);
         this.queuedMessages = _.uniq(q)
         return this;

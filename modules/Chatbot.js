@@ -8,7 +8,8 @@ let eventHandler = function (msg, data) {
     }
 
     let fixedMsg = msg.toString().replace(/(^|\s)@/, ' ').trim()
-    if (!data.command && (data.direct || (data.highlight && false))) { // TODO
+    let chance = this.app.property('chatbot:highlightChance', 0.1);
+    if (!data.command && (data.direct || (data.highlight && Math.random() < chance))) {
         this.ask(fixedMsg, data);
     }
 }
@@ -27,7 +28,7 @@ let reply = function (msg, data) {
     let channel = data.channel;
     if (channel && nick) {
         let cmd = data.private ? `/msg ${nick || 'SYSTEM'} ` : ''
-        let prefix = !data.private && data.direct ? `@${nick}: ` : ''
+        let prefix = !data.private ? `@${nick}: ` : ''
 
         debug('Reply to %s: %o', nick, msg);
         sendMessage.call(this, `${cmd}${prefix}${msg}`, channel)

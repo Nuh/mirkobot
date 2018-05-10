@@ -23,8 +23,17 @@ let unregisterChannelEvents = function(name, queue) {
 
 class Mirkoczat {
     constructor(applicationInstance) {
+        // CONFIG
+        let token = normalizeToken(applicationInstance.property('token'));
+        let highlight = applicationInstance.property('highlight') || token.login;
+
+        this.token = token
+        this.highlightMatcher = highlight ? new RegExp(highlight, 'gi') : null
+
+        // INSTANCEs
         this.app = applicationInstance;
-        this.token = normalizeToken(applicationInstance.property('token'));
+
+        // DATA
         this.channels = {};
     }
 
@@ -80,7 +89,7 @@ class Mirkoczat {
     channelJoin(name) {
         let login = this.getUsername() || 'unknown';
         if (name && !this.hasChannel(name)) {
-            let channel = new Channel(this.app.queue, this.app.property('server'), name, this.token);
+            let channel = new Channel(this.app.queue, this.app.property('server'), name, this.token, this.highlightMatcher);
             channel.connect((queue) => {
                 registerChannelEvents.call(this, name, queue);
                 console.log(`Connected '${login}' to #${name} channel`)
