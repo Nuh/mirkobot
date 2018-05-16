@@ -27,6 +27,9 @@ let sendMessage = function (msg, channel) {
 let eventHandler;
 let registerEvents = _.once(function (that) {
     that.app.bus('channel::*::command::privileged', function (command, args, data) {
+        let channel = that.app.getModule('mirkoczat').getChannelInstance(data.channel);
+        let nick = data.user;
+
         let id = _.first(args);
         let opts = _.tail(args);
 
@@ -54,7 +57,7 @@ let registerEvents = _.once(function (that) {
 
                 let msg = opts.join(' ').trim();
                 if (id && msg) {
-                    let dto = that.register(id, msg, data.user);
+                    let dto = that.register(id, msg, nick);
                     if (dto) {
                         reply.call(that, data, `Memo ${id} registered!`);
                     } else {
@@ -201,15 +204,26 @@ let registerEvents = _.once(function (that) {
                     break;
                 }
 
-                if (that.isAlias(id)) {
-                    let obj = that.get(id);
-                    if (that.unalias(id)) {
-                        reply.call(that, data, `Memo ${obj.name} has removed ${id} alias!`);
+                let obj = that.get(id);
+                if (obj) {
+                    if (that.isAlias(id)) {
+                        if (that.unalias(id)) {
+                            reply.call(that, data, `Memo ${obj.name} has removed ${id} alias!`);
+                        } else {
+                            reply.call(that, data, `Memo ${obj.name} has can not remove ${id} alias!`);
+                        }
                     } else {
-                        reply.call(that, data, `Memo ${obj.name} has can not remove ${id} alias!`);
+                        let ops = (((channel || {}).getSettings || _.noop).call(channel) || {}).operators;
+                        if (obj.createdBy === 'SYSTEM') {
+                            reply.call(that, data, `Memo ${id} can not remove because created by a SYSTEM!`);
+                        } else if (!nick || (obj.createdBy !== nick && (_.size(ops) === 0 || ops.indexOf(nick) === -1 || ops.indexOf(obj.createdBy) > ops.indexOf(nick)))) {
+                            reply.call(that, data, `Memo ${id} can not remove because you do not have privileges to do that!`);
+                        } else if (that.remove(id)) {
+                            reply.call(that, data, `Memo ${id} removed!`);
+                        } else {
+                            reply.call(that, data, `Memo ${id} can not removed!`);
+                        }
                     }
-                } else if (that.remove(id)) {
-                    reply.call(that, data, `Memo ${id} removed!`);
                 } else if (id) {
                     reply.call(that, data, `Memo ${id} not found`);
                 } else {
@@ -259,6 +273,47 @@ let registerEvents = _.once(function (that) {
                 }
                 break;
             }
+
+            case 'memo-import': {
+                try {
+                    let m = JSON.parse(new Buffer(args.join(' '), 'base64').toString('utf8'));
+                    if (m instanceof Object && m.name && m.content) {
+                        if (that.has(m.name)) {
+                            reply.call(that, data, `Cannot import memo, because: memo ${m.name} exists!`);
+                        } else if (_.some(m.aliases, (a) => that.has(a))) {
+                            reply.call(that, data, `Cannot import memo, because: used some aliases of memo! (${m.aliases.join(', ')})`);
+                        } else if (that.register(m.name, m.content, nick || m.createdBy, true) && that.alias(m.name, m.aliases)) {
+                            _.each(m, (v, k) => that.property(m.name, k, v) || true);
+                            reply.call(that, data, `Memo ${m.name} imported`);
+                        } else {
+                            reply.call(that, data, `Cannot import memo, because: unknown reason!`);
+                        }
+                    } else {
+                        reply.call(that, data, `Cannot import memo, because: data is invalid!`);
+                    }
+                } catch (e) {
+                    reply.call(that, data, `Cannot import memo, because: ${e.message}`);
+                }
+                break;
+            }
+
+            case 'memo-export': {
+                let obj = that.get(id);
+                if (obj) {
+                    try {
+                        let m = _.omitBy(obj, (v, k) => ['id', 'previous', 'next'].indexOf(k) !== -1);
+                        let d = new Buffer(JSON.stringify(m), 'utf8').toString('base64');
+                        reply.call(that, data, `Command to import: !memo-import ${d}`);
+                    } catch (e) {
+                        reply.call(that, data, `Memo ${obj.name} cannot exported, because: ${e.message}`);
+                    }
+                } else if (id) {
+                    reply.call(that, data, `Memo ${id} not found`);
+                } else {
+                    reply.call(that, data, `No passed name, execute: ${command} name!`);
+                }
+                break;
+            }
         }
     })
 });
@@ -282,6 +337,14 @@ class Memo {
         return ['mirkoczat']
     }
 
+    init() {
+        this.db = this.app.db.get('memo');
+    }
+
+    isInitialized() {
+        return !!this.db;
+    }
+
     prepare() {
         this.app.db.defaults({memo: []}).write();
 
@@ -293,14 +356,6 @@ class Memo {
                 this.send.call(this, command, args, data, data.private);
             };
         }
-    }
-
-    init() {
-        this.db = this.app.db.get('memo');
-    }
-
-    isInitialized() {
-        return !!this.db;
     }
 
     run() {
@@ -527,6 +582,7 @@ class Memo {
             }
             return this.save()
         }
+        debug('Unknown property %o to modify for %o memo', name, (entity || {}).name || 'not exists');
         return false
     }
 
