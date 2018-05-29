@@ -222,6 +222,7 @@ typings/
 # dotenv environment variables file
 .env
 
+package-lock.json
 
 ### TortoiseGit ###
 # Project-level settings

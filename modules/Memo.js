@@ -602,7 +602,7 @@ class Memo {
                 let useMsg = forcedPrivate || (!forcedGlobal && sendPrivate)
                 let useMe = !_.isNil(dto.useMe) ? dto.useMe == 'true' : this.useMe
 
-                let cmd = useMsg ? `/msg ${nick || 'SYSTEM'} ` : (useMe ? '/me ' : '')
+                let cmd = `${useMsg ? `/msg ${nick || 'SYSTEM'}` : (useMe ? '/me' : '')} `
                 let icon = _.isNil(dto.icon) ? '📝 ' : ((dto.icon || '').trim() ? `${dto.icon} ` : '')
                 let prefix = dto.hiddenName || !(dto.name || id).trim() ? '' : `${dto.name || id}: `
                 let templateMsg = _(dto.content).castArray().flattenDeep().sample().trim();
@@ -639,7 +639,11 @@ class Memo {
 
                                 channel: chSettings,
 
-                                execute: (cmd, priority = false) => chInstance.sendMessage.call(chInstance, cmd, priority)
+                                execute: (cmd, priority = false) => {
+                                    if (dto.createdBy === 'SYSTEM' || cmd.match(new RegExp(this.app.property('memo:mask:execute', '^([/](msg|me|global|global!|mod) |[^/])'), 'gi'))) {
+                                        chInstance.sendMessage.call(chInstance, cmd, priority);
+                                    }
+                                }
                             }
                         })(userArgs);
 
